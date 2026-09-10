@@ -1,0 +1,48 @@
+# ---- secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- node ----
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# ---- data & artifacts (never commit; see docs/DEPLOYMENT.md) ----
+data/datasets/*
+!data/datasets/.gitkeep
+data/models/*
+!data/models/.gitkeep
+data/artifacts/*
+!data/artifacts/.gitkeep
+*.tif
+*.tiff
+*.nc
+*.SAFE/
+*.zip
+*.pth
+*.ckpt
+
+# ---- os / editor ----
+.DS_Store
+.idea/
+.vscode/
+*.swp

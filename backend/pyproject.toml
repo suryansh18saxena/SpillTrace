@@ -1,0 +1,116 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spilltrace"
+version = "0.1.0"
+description = "SPILLTRACE — maritime pollution attribution system (SIH26143)"
+requires-python = ">=3.11"
+readme = "README.md"
+
+dependencies = [
+  # --- web ---
+  "fastapi>=0.115,<0.120",
+  "uvicorn[standard]>=0.32,<0.40",
+  "pydantic>=2.9,<3",
+  "pydantic-settings>=2.6,<3",
+  "python-multipart>=0.0.12",
+  "email-validator>=2.2,<3",
+  "sse-starlette>=2.1,<3",
+  # --- database ---
+  "sqlalchemy[asyncio]>=2.0.36,<2.1",
+  "asyncpg>=0.30,<0.31",
+  "psycopg[binary]>=3.2,<4",
+  "geoalchemy2>=0.16,<0.20",
+  "alembic>=1.14,<2",
+  # --- cache / queue ---
+  "redis>=5.2,<7",
+  # --- object storage ---
+  "boto3>=1.35,<2",
+  # --- geospatial ---
+  "shapely>=2.0.6,<3",
+  "pyproj>=3.7,<4",
+  "rasterio>=1.4,<2",
+  "numpy>=1.26,<3",
+  "scipy>=1.14,<2",
+  # --- security ---
+  "argon2-cffi>=23.1,<26",
+  "pyjwt>=2.10,<3",
+  # --- clients / infra ---
+  "httpx>=0.28,<0.30",
+  "websockets>=13,<16",
+  "structlog>=24.4,<26",
+  "orjson>=3.10,<4",
+  "jinja2>=3.1,<4",
+  "python-dateutil>=2.9,<3",
+]
+
+[project.optional-dependencies]
+ml = ["torch>=2.4", "torchvision>=0.19"]
+pdf = ["weasyprint>=63,<70"]
+netcdf = ["xarray>=2024.9", "netCDF4>=1.7", "cftime>=1.6"]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.24,<2",
+  "pytest-cov>=6.0,<8",
+  "httpx>=0.28",
+  "fakeredis>=2.26,<3",
+  "ruff>=0.8,<0.16",
+  "mypy>=1.13,<2",
+  "types-python-dateutil",
+  "asgi-lifespan>=2.1,<3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+spilltrace = ["py.typed", "**/*.sql", "**/*.html", "**/*.json", "**/*.jinja"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "S", "DTZ", "PTH"]
+# Typographic characters are deliberate in analyst-facing text: an en dash in a
+# coordinate range and a Greek sigma for backscatter are correct, not confusables.
+allowed-confusables = ["–", "σ", "°", "×", "≥", "≤"]
+ignore = [
+  "S101",   # assert — used in tests
+  "B008",   # FastAPI Depends() in defaults is the documented idiom
+  "RUF012", # mutable class attrs without ClassVar
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "N806"]
+# Alembic writes these; hand-wrapping them would be undone on the next autogenerate.
+"src/spilltrace/db/migrations/versions/*.py" = ["E501"]
+"src/spilltrace/demo/**" = ["S311"]   # non-crypto RNG is correct for reproducible demo data
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+exclude = "(migrations|tests)"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+markers = [
+  "integration: requires postgres/redis/minio",
+  "gis: requires PostGIS",
+  "e2e: full pipeline",
+  "slow: long running",
+  "requires_credentials: needs real external provider credentials",
+]
+filterwarnings = ["error::DeprecationWarning:spilltrace.*"]

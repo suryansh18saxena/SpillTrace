@@ -1,0 +1,163 @@
+/* Shared, cross-screen presentation primitives. */
+
+/* ================================================================== Notice */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-left: 3px solid var(--color-neutral);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.noticeCaution {
+  border-left-color: var(--confidence-2);
+}
+
+.noticeInfo {
+  border-left-color: var(--color-accent);
+}
+
+.noticeSynthetic {
+  border-left-color: var(--provenance-synthetic);
+}
+
+.noticeIcon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-text-muted);
+}
+
+.noticeCaution .noticeIcon {
+  color: var(--confidence-2-text);
+}
+
+.noticeInfo .noticeIcon {
+  color: var(--color-accent-text);
+}
+
+.noticeSynthetic .noticeIcon {
+  color: var(--provenance-synthetic);
+}
+
+.noticeBody {
+  min-width: 0;
+}
+
+.noticeLabel {
+  display: block;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.noticeStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ============================================================== Definitions */
+
+.metaList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.metaListDense {
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+
+.metaEntry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metaTerm {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.metaDefinition {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.metaDefinitionMono {
+  font-family: var(--font-mono);
+}
+
+.metaHint {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+/* ============================================================ Stat readouts */
+
+.readoutGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+}
+
+.readout {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.readoutLabel {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.readoutValue {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.readoutCaption {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+/* ============================================================== Unmeasured */
+
+/*
+ * A model with `metrics: {}` has never been evaluated. That is not a score of
+ * zero and is deliberately styled as absent information, not as a number.
+ */
+.unmeasured {
+  font-style: italic;
+  color: var(--color-text-muted);
+}

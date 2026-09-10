@@ -1,0 +1,513 @@
+/* Page-level layout shared by the route components. */
+
+/* ================================================================== Login */
+
+.authScreen {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  background:
+    radial-gradient(120rem 60rem at 50% -20%, var(--color-surface) 0%, transparent 60%),
+    var(--color-bg);
+}
+
+.authCard {
+  width: min(26rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.authBrand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.authBrandMark {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  border: 1px solid var(--color-accent-border);
+  color: var(--color-accent-text);
+}
+
+.authTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+}
+
+.authSubtitle {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.authForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.authFooter {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* ============================================================== Filter bar */
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+  margin-bottom: var(--space-4);
+}
+
+.filterActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ============================================================== Pagination */
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.paginationStatus {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.paginationButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ================================================================== Tables */
+
+.cellPrimary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cellLink {
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+
+.cellLink:hover {
+  color: var(--color-accent-text);
+  text-decoration: underline;
+}
+
+.cellSub {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  max-width: 40ch;
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* ============================================================ Create case */
+
+.createGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 68rem) {
+  .createGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mapPane {
+  height: clamp(20rem, 52vh, 34rem);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.formError {
+  margin-bottom: var(--space-3);
+}
+
+/* ======================================================== Investigation UI */
+
+.investigation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24rem;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 72rem) {
+  .investigation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.investigationMap {
+  position: relative;
+  min-height: clamp(22rem, 58vh, 46rem);
+  border-right: 1px solid var(--color-border);
+}
+
+@media (max-width: 72rem) {
+  .investigationMap {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.investigationPanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--color-bg-subtle);
+  overflow-y: auto;
+  max-height: calc(100dvh - var(--layout-header-height));
+}
+
+@media (max-width: 72rem) {
+  .investigationPanel {
+    max-height: none;
+  }
+}
+
+.panelSection {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panelHeading {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.caseSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.caseTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-3);
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metaLabel {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.metaValue {
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.metaValueMono {
+  font-family: var(--font-mono);
+}
+
+/* ==================================================================== Admin */
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.stat {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.statLabel {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.statValue {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  line-height: 1.1;
+}
+
+.sectionStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.jobsScroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+/* ============================================================ Error / 404 */
+
+.centeredScreen {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: var(--space-6) var(--space-4);
+}
+
+.centeredCard {
+  width: min(34rem, 100%);
+}
+
+.pageSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+/* ======================================================= Sub-navigation rows */
+
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.panelNotices {
+  margin-top: var(--space-3);
+}
+
+/* ================================================== Detail-page scaffolding */
+
+.detailStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.6fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 68rem) {
+  .detailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.detailMap {
+  height: clamp(16rem, 40vh, 28rem);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.inlineNotices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.explanation {
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.manifest {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+  overflow-x: auto;
+  max-height: 24rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ============================================================ Report viewer */
+
+.reportFrame {
+  width: 100%;
+  min-height: clamp(28rem, 70vh, 60rem);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+}
+
+/* ================================================================ Timelines */
+
+.eventTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eventRow {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+@media (max-width: 40rem) {
+  .eventRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}
+
+.eventRow:last-child {
+  border-bottom: none;
+}
+
+.eventTime {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.eventBody {
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.eventDetail {
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+/* ======================================================= Case section tabs */
+
+.caseNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-2);
+}
+
+.caseNavLink {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.caseNavLink:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.caseNavLink:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.caseNavLinkActive {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent-border);
+  color: var(--color-accent-text);
+  font-weight: var(--weight-medium);
+}
+
+.readoutRowSkeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+}

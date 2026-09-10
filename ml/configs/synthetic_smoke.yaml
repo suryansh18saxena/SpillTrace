@@ -1,0 +1,32 @@
+# A minutes-long run against the offline synthetic generator.  Its purpose is to prove
+# the training path works end to end; its metrics describe synthetic data and are never
+# presented as performance on real Sentinel-1 imagery.
+name: unet-synthetic-smoke
+seed: 7
+device: cpu
+output_dir: runs
+threshold: 0.5
+
+model:
+  base_filters: 8
+  depth: 3
+
+data:
+  synthetic: true
+  synthetic_images: 16
+  synthetic_size: 192
+  patch_size: 64
+  stride: 48
+  val_fraction: 0.25
+  test_fraction: 0.25
+  empty_tile_fraction: 0.35
+  augment: true
+
+optim:
+  lr: 0.001
+  batch_size: 8
+  epochs: 4
+  warmup_epochs: 1
+  early_stop_patience: 3
+  num_workers: 0
+  threads: 4

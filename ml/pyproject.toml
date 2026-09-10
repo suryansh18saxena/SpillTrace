@@ -1,0 +1,35 @@
+[project]
+name = "spilltrace-ml"
+version = "0.1.0"
+description = "SPILLTRACE — SAR oil-slick segmentation training and evaluation"
+requires-python = ">=3.11"
+# Runtime dependencies come from the backend image (numpy, rasterio, httpx, PyYAML).
+# torch is deliberately optional: the default image is built without it (AD-11), and
+# everything except the training loop itself runs without it.
+dependencies = []
+
+[project.optional-dependencies]
+train = ["torch>=2.4"]
+extract = ["py7zr>=0.21"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "S", "DTZ", "PTH"]
+allowed-confusables = ["–", "σ", "°", "×", "≥", "≤"]
+ignore = ["S101", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+# Reproducible pseudo-random data generation is the point of the synthetic dataset.
+"src/dataset/synthetic.py" = ["S311"]
+"src/dataset/augment.py" = ["S311"]
+"tests/**" = ["S", "N806"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+markers = ["slow: long running", "requires_torch: needs PyTorch installed"]

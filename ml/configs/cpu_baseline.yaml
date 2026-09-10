@@ -1,0 +1,49 @@
+# CPU baseline (AD-11).  Every number here was chosen for a 8-thread, 15 GB, no-CUDA
+# host; a GPU run changes this file and nothing else.
+name: unet-cpu-baseline
+seed: 42
+device: auto
+output_dir: runs
+threshold: 0.5
+
+model:
+  name: unet
+  encoder: simple        # simple | resnet34 | segformer
+  in_channels: 2         # VV, VH
+  out_channels: 1        # one logit: oil / not-oil
+  base_filters: 16       # ~1.9M parameters at depth 4; base 64 would be ~31M
+  depth: 4
+  norm_groups: 8         # GroupNorm: CPU-sized batches make BatchNorm unreliable
+  dropout: 0.0
+
+data:
+  root: data/trujillo    # set by ml/scripts/download_dataset.py
+  synthetic: false
+  patch_size: 128        # 256^2 is ~4x the compute
+  stride: 96
+  val_fraction: 0.15
+  test_fraction: 0.15
+  empty_tile_fraction: 0.35
+  augment: true
+  max_images: null
+  expected_band_order: [VV, VH]
+  expected_dtype: null   # probed and reported, never assumed
+
+optim:
+  lr: 0.0003
+  weight_decay: 0.0001
+  batch_size: 8
+  epochs: 30
+  warmup_epochs: 3       # BCE only, then the compound loss
+  early_stop_patience: 8 # on validation oil-class Dice
+  scheduler: cosine
+  num_workers: 2         # more workers compete with the compute threads
+  threads: 8
+  amp: false             # no AMX on this CPU; bf16 would not help
+  grad_clip: 1.0
+
+loss:
+  bce_weight: 0.5
+  dice_weight: 0.5
+  pos_weight_max: 10.0
+  dice_epsilon: 1.0

@@ -1,0 +1,96 @@
+.job {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.jobFailed {
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+}
+
+.jobHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.jobType {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+}
+
+.jobSpacer {
+  flex: 1;
+}
+
+.jobActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.jobStep {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.jobMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* Focusable so the tooltip is reachable from the keyboard, not hover-only. */
+.jobMetaTrigger {
+  border-radius: var(--radius-xs);
+  cursor: help;
+}
+
+.jobMetaValue {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.jobError {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.jobErrorCode {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-danger);
+  letter-spacing: var(--tracking-wide);
+}
+
+.jobList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.streamStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}

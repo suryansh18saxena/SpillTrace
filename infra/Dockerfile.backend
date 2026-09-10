@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1
+# SPILLTRACE backend/worker image.
+# One image, three roles (api | worker | ais-ingestor) selected by the command.
+# Python is pinned to 3.12 for wide scientific-wheel availability.
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Runtime system libraries.
+#   libexpat/libgomp : rasterio & numpy wheels
+#   pango/cairo/gdk  : WeasyPrint PDF export (report degrades to HTML if absent)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates libgomp1 libexpat1 \
+        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+        libharfbuzz0b libffi8 shared-mime-info fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ---------------------------------------------------------------- deps layer
+FROM base AS deps
+ARG INSTALL_ML=false
+# Test tooling ships in development images; production builds set INSTALL_DEV=false.
+ARG INSTALL_DEV=true
+COPY backend/pyproject.toml backend/README.md /app/backend/
+COPY backend/src/spilltrace/__init__.py /app/backend/src/spilltrace/__init__.py
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && if [ "$INSTALL_DEV" = "true" ]; then pip install -e "/app/backend[dev]"; \
+       else pip install -e /app/backend; fi
+# PyTorch CPU wheels come from the dedicated index to avoid pulling CUDA.
+RUN if [ "$INSTALL_ML" = "true" ]; then \
+        pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.5.1" "torchvision==0.20.1" ; \
+    fi
+
+# ---------------------------------------------------------------- runtime
+FROM deps AS runtime
+ARG INSTALL_DEV=true
+COPY backend /app/backend
+RUN if [ "$INSTALL_DEV" = "true" ]; then pip install -e "/app/backend[dev]"; else pip install -e /app/backend; fi \
+    && groupadd --system --gid 1001 spilltrace \
+    && useradd --system --uid 1001 --gid spilltrace --home /app spilltrace \
+    && mkdir -p /app/data /app/.cache && chown -R spilltrace:spilltrace /app
+USER spilltrace
+ENV PYTHONPATH=/app/backend/src
+EXPOSE 8000
+CMD ["python", "-m", "spilltrace.api"]

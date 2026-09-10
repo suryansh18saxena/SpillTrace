@@ -1,0 +1,207 @@
+# SPILLTRACE — local development stack (Compose spec).
+# Works with `docker compose`, `podman compose` or `podman-compose`.
+# Use the Makefile, which auto-detects the runtime: `make up`.
+
+name: spilltrace
+
+x-backend-env: &backend-env
+  SPILLTRACE_ENV: ${SPILLTRACE_ENV:-development}
+  SPILLTRACE_LOG_LEVEL: ${SPILLTRACE_LOG_LEVEL:-INFO}
+  SPILLTRACE_VERSION: ${SPILLTRACE_VERSION:-0.1.0}
+  SPILLTRACE_SECRET_KEY: ${SPILLTRACE_SECRET_KEY:?SPILLTRACE_SECRET_KEY is required}
+  SPILLTRACE_ACCESS_TOKEN_TTL_SECONDS: ${SPILLTRACE_ACCESS_TOKEN_TTL_SECONDS:-900}
+  SPILLTRACE_REFRESH_TOKEN_TTL_SECONDS: ${SPILLTRACE_REFRESH_TOKEN_TTL_SECONDS:-604800}
+  SPILLTRACE_CORS_ORIGINS: ${SPILLTRACE_CORS_ORIGINS:-http://localhost:3000}
+  POSTGRES_USER: ${POSTGRES_USER:-spilltrace}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+  POSTGRES_DB: ${POSTGRES_DB:-spilltrace}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_DB: ${REDIS_DB:-0}
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-spilltrace}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+  S3_BUCKET: ${S3_BUCKET:-spilltrace}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  SPILLTRACE_SATELLITE_PROVIDER: ${SPILLTRACE_SATELLITE_PROVIDER:-fixture}
+  SPILLTRACE_ENVIRONMENT_PROVIDER: ${SPILLTRACE_ENVIRONMENT_PROVIDER:-synthetic}
+  SPILLTRACE_AIS_PROVIDER: ${SPILLTRACE_AIS_PROVIDER:-synthetic}
+  SPILLTRACE_DRIFT_ENGINE: ${SPILLTRACE_DRIFT_ENGINE:-analytical}
+  SPILLTRACE_SEGMENTATION_MODEL: ${SPILLTRACE_SEGMENTATION_MODEL:-analytical}
+  SPILLTRACE_STORAGE_PROVIDER: ${SPILLTRACE_STORAGE_PROVIDER:-s3}
+  SPILLTRACE_MAX_AOI_KM2: ${SPILLTRACE_MAX_AOI_KM2:-250000}
+  SPILLTRACE_MAX_TIME_WINDOW_DAYS: ${SPILLTRACE_MAX_TIME_WINDOW_DAYS:-30}
+  SPILLTRACE_JOB_MAX_ATTEMPTS: ${SPILLTRACE_JOB_MAX_ATTEMPTS:-3}
+  SPILLTRACE_WORKER_CONCURRENCY: ${SPILLTRACE_WORKER_CONCURRENCY:-2}
+  CDSE_USERNAME: ${CDSE_USERNAME:-}
+  CDSE_PASSWORD: ${CDSE_PASSWORD:-}
+  CDSE_CLIENT_ID: ${CDSE_CLIENT_ID:-cdse-public}
+  COPERNICUSMARINE_SERVICE_USERNAME: ${COPERNICUSMARINE_SERVICE_USERNAME:-}
+  COPERNICUSMARINE_SERVICE_PASSWORD: ${COPERNICUSMARINE_SERVICE_PASSWORD:-}
+  AISSTREAM_API_KEY: ${AISSTREAM_API_KEY:-}
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spilltrace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-spilltrace}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/99-init.sql:ro,z
+    ports:
+      - "${POSTGRES_PORT_HOST:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spilltrace} -d ${POSTGRES_DB:-spilltrace}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT_HOST:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-spilltrace}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "${MINIO_PORT_HOST:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT_HOST:-9001}:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-spilltrace}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-spilltrace}
+    entrypoint: ["/bin/sh", "/scripts/init-buckets.sh"]
+    volumes:
+      - ./infra/minio/init-buckets.sh:/scripts/init-buckets.sh:ro,z
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+      target: runtime
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${API_PORT_HOST:-8000}:8000"
+    volumes:
+      - ./backend:/app/backend:z
+      - ./data:/app/data:z
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+      target: runtime
+    command: ["python", "-m", "spilltrace.worker"]
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: worker
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend:z
+      - ./data:/app/data:z
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/spilltrace-worker.alive && find /tmp/spilltrace-worker.alive -mmin -2 | grep -q ."]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  ais-ingestor:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+      target: runtime
+    command: ["python", "-m", "spilltrace.worker.ais_ingestor"]
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: ais-ingestor
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend:z
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.frontend
+      target: ${FRONTEND_TARGET:-dev}
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-SPILLTRACE}
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT_HOST:-3000}:3000"
+    volumes:
+      - ./frontend:/app:z
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  frontend-node-modules:
+  frontend-next:

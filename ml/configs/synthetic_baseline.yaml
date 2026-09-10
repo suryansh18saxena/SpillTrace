@@ -1,0 +1,46 @@
+# The full CPU-baseline geometry (AD-11) running against the offline synthetic
+# generator.  This is what `--benchmark-epoch` is pointed at when the real dataset is not
+# available: it measures the wall clock of the architecture and tile size we would
+# actually train with, without pretending its accuracy means anything about Sentinel-1.
+name: unet-synthetic-baseline
+seed: 42
+device: cpu
+output_dir: runs
+threshold: 0.5
+
+model:
+  name: unet
+  encoder: simple
+  in_channels: 2
+  out_channels: 1
+  base_filters: 16
+  depth: 4
+  norm_groups: 8
+
+data:
+  synthetic: true
+  synthetic_images: 120
+  synthetic_size: 512
+  patch_size: 128
+  stride: 96
+  val_fraction: 0.2
+  test_fraction: 0.2
+  empty_tile_fraction: 0.35
+  augment: true
+
+optim:
+  lr: 0.0003
+  weight_decay: 0.0001
+  batch_size: 8
+  epochs: 40
+  warmup_epochs: 2
+  early_stop_patience: 10
+  scheduler: cosine
+  num_workers: 0
+  threads: 8
+  grad_clip: 1.0
+
+loss:
+  bce_weight: 0.5
+  dice_weight: 0.5
+  pos_weight_max: 10.0

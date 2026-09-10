@@ -1,0 +1,220 @@
+/*
+ * SPILLTRACE design tokens (P4-002).
+ *
+ * Dark-first: the default `:root` block IS the dark theme, because analysts work
+ * in low-light operations rooms and the map is the hero on every investigation
+ * screen. `[data-theme='light']` overrides for daylight/printing.
+ *
+ * Colour is used semantically and sparingly:
+ *   - neutral greys carry all chrome (surfaces, borders, text)
+ *   - ONE accent (blue) marks every interactive affordance
+ *   - a deliberate 3-step sequential scale (grey -> amber -> bright amber)
+ *     carries confidence / probability. It is a lightness ramp as well as a hue
+ *     ramp so it survives greyscale and colour-vision deficiency, and it
+ *     deliberately never uses red: a high score is an investigative lead, not an
+ *     accusation (CON-001, CON-003).
+ *   - red appears ONLY for system failure (a failed job), never for a score.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------- neutrals */
+  --color-bg: #0b0f14;
+  --color-bg-subtle: #0f151c;
+  --color-surface: #131a23;
+  --color-surface-raised: #18212c;
+  --color-surface-overlay: #1d2733;
+  --color-surface-hover: #212c3a;
+  --color-surface-active: #27354598;
+
+  --color-border: #26313d;
+  --color-border-strong: #37465a;
+  --color-border-subtle: #1c242e;
+
+  --color-text: #e6edf5;
+  --color-text-secondary: #a5b3c4;
+  --color-text-muted: #74849a;
+  --color-text-inverse: #0b0f14;
+
+  /* ------------------------------------------------------------------ accent */
+  --color-accent: #4f8ff7;
+  --color-accent-hover: #6ba3f9;
+  --color-accent-active: #3d7ce4;
+  --color-accent-subtle: #4f8ff722;
+  --color-accent-border: #4f8ff755;
+  --color-accent-text: #9dc4fd;
+  --color-on-accent: #06101f;
+
+  /* ------------------------------------------------- status (system, not guilt) */
+  --color-success: #3fb950;
+  --color-success-subtle: #3fb95020;
+  --color-warning: #d29922;
+  --color-warning-subtle: #d2992220;
+  --color-danger: #f85149;
+  --color-danger-subtle: #f8514920;
+  --color-info: #4f8ff7;
+  --color-info-subtle: #4f8ff720;
+  --color-neutral: #74849a;
+  --color-neutral-subtle: #74849a1f;
+
+  /* ------------------------------------------- confidence / probability ramp */
+  /* 3 steps only. Never red. Never labelled "responsible" or "guilty". */
+  --confidence-1: #7a8798; /* LOW    — weak investigative signal */
+  --confidence-2: #c08b34; /* MEDIUM — moderate investigative signal */
+  --confidence-3: #f0c04a; /* HIGH   — strong investigative signal */
+  --confidence-1-subtle: #7a879826;
+  --confidence-2-subtle: #c08b3426;
+  --confidence-3-subtle: #f0c04a26;
+  --confidence-1-text: #b4bfcd;
+  --confidence-2-text: #d9a648;
+  --confidence-3-text: #f5cf6d;
+
+  /* --------------------------------------------------------- data provenance */
+  --provenance-real: #4f8ff7;
+  --provenance-synthetic: #a371f7;
+  --provenance-mixed: #d29922;
+
+  /* --------------------------------------------------------------------- map */
+  --map-ocean: #0a1622;
+  --map-ocean-deep: #071019;
+  --map-graticule: #1b2c3d;
+  --map-aoi: #4f8ff7;
+  --map-spill: #f0c04a;
+  --map-origin: #a371f7;
+  --map-vessel: #5fd3c4;
+  --map-track: #7a8798;
+
+  /* ------------------------------------------------------------------ spacing */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* -------------------------------------------------------------------- radii */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* --------------------------------------------------------------- typography */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Menlo', 'Consolas', 'Liberation Mono',
+    monospace;
+
+  --text-2xs: 0.6875rem; /* 11px — table meta, badges */
+  --text-xs: 0.75rem; /* 12px — dense table cells */
+  --text-sm: 0.8125rem; /* 13px — body default in dense UI */
+  --text-base: 0.875rem; /* 14px */
+  --text-md: 1rem; /* 16px — form controls (prevents iOS zoom) */
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-wide: 0.06em;
+
+  /* ----------------------------------------------------------------- elevation */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
+
+  /* -------------------------------------------------------------------- misc */
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent);
+  --focus-ring-inset: inset 0 0 0 2px var(--color-accent);
+  --duration-fast: 90ms;
+  --duration-normal: 160ms;
+  --easing: cubic-bezier(0.2, 0, 0.2, 1);
+
+  --z-sticky: 100;
+  --z-sidebar: 200;
+  --z-overlay: 900;
+  --z-dialog: 1000;
+  --z-toast: 1100;
+
+  --layout-sidebar-width: 15rem;
+  --layout-header-height: 3.25rem;
+  --layout-max-width: 110rem;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --color-bg: #f4f6f9;
+  --color-bg-subtle: #eaeef3;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: #ffffff;
+  --color-surface-hover: #eef2f7;
+  --color-surface-active: #e2e8f0;
+
+  --color-border: #d3dbe4;
+  --color-border-strong: #b3bfcd;
+  --color-border-subtle: #e4e9ef;
+
+  --color-text: #11181f;
+  --color-text-secondary: #445263;
+  --color-text-muted: #637284;
+  --color-text-inverse: #ffffff;
+
+  --color-accent: #1b62d4;
+  --color-accent-hover: #1755bd;
+  --color-accent-active: #12489f;
+  --color-accent-subtle: #1b62d414;
+  --color-accent-border: #1b62d444;
+  --color-accent-text: #12489f;
+  --color-on-accent: #ffffff;
+
+  --color-success: #1a7f37;
+  --color-success-subtle: #1a7f3718;
+  --color-warning: #8a6100;
+  --color-warning-subtle: #8a610018;
+  --color-danger: #b42318;
+  --color-danger-subtle: #b4231818;
+  --color-info: #1b62d4;
+  --color-info-subtle: #1b62d414;
+  --color-neutral: #637284;
+  --color-neutral-subtle: #6372841a;
+
+  --confidence-1: #7a8798;
+  --confidence-2: #8a6100;
+  --confidence-3: #6b4a00;
+  --confidence-1-subtle: #7a879820;
+  --confidence-2-subtle: #8a610018;
+  --confidence-3-subtle: #6b4a0018;
+  --confidence-1-text: #55616f;
+  --confidence-2-text: #7a5600;
+  --confidence-3-text: #5a3e00;
+
+  --provenance-real: #1b62d4;
+  --provenance-synthetic: #6b31c4;
+  --provenance-mixed: #8a6100;
+
+  --map-ocean: #cfdce8;
+  --map-ocean-deep: #bcccdd;
+  --map-graticule: #a9bccd;
+  --map-track: #55616f;
+
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.08);
+  --shadow-md: 0 4px 12px rgb(16 24 40 / 0.1);
+  --shadow-lg: 0 16px 40px rgb(16 24 40 / 0.14);
+}

@@ -1,0 +1,204 @@
+/* Candidate ranking (UI-007 surface used by the investigation shell). */
+
+.disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-left: 3px solid var(--confidence-2);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.disclaimerIcon {
+  flex: none;
+  color: var(--confidence-2-text);
+  margin-top: 1px;
+}
+
+.disclaimerText {
+  min-width: 0;
+}
+
+.disclaimerLabel {
+  display: block;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.rankingRoot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.candidate {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.candidateSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  cursor: pointer;
+  list-style: none;
+}
+
+.candidateSummary::-webkit-details-marker {
+  display: none;
+}
+
+.candidateSummary:hover {
+  background: var(--color-surface-hover);
+}
+
+.candidateSummary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.rank {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.candidateIdentity {
+  flex: 1;
+  min-width: 0;
+}
+
+.vesselName {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vesselIds {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.scoreBlock {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.scoreValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.scoreCaption {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-normal);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin-top: 2px;
+}
+
+.chevron {
+  flex: none;
+  color: var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--easing);
+}
+
+.candidate[open] .chevron {
+  transform: rotate(90deg);
+}
+
+.candidateBody {
+  padding: 0 var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-3);
+}
+
+.factor {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1.1fr) minmax(6rem, 0.8fr) minmax(0, 2.4fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.factor:last-of-type {
+  border-bottom: none;
+}
+
+@media (max-width: 48rem) {
+  .factor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}
+
+.factorLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.factorWeight {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.factorExplanation {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.footnote {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+.weightsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
