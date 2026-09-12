@@ -46,6 +46,7 @@ import {
 import { useJobStream } from '@/lib/api/useJobStream';
 import type { ParticleProperties, PipelineMode } from '@/lib/api/types';
 import { API_BASE_URL } from '@/lib/config';
+import { groupJobsByRun } from '@/lib/jobs';
 import { cx } from '@/lib/cx';
 import {
   formatAreaKm2,
@@ -379,6 +380,7 @@ export default function InvestigationPage() {
 
   const fitTo = useMemo(() => polygonBbox(caseData?.aoi ?? null), [caseData?.aoi]);
   const jobs = jobsQuery.data?.items ?? [];
+  const jobRuns = useMemo(() => groupJobsByRun(jobsQuery.data?.items ?? []), [jobsQuery.data]);
   const attributions = attributionsQuery.data?.items ?? [];
   const detections = useMemo(() => detectionsQuery.data?.items ?? [], [detectionsQuery.data]);
   const driftRuns = driftRunsQuery.data?.items ?? [];
@@ -764,14 +766,39 @@ export default function InvestigationPage() {
                 />
               ) : (
                 <div className={styles.jobsScroll}>
-                  {jobs.map((job) => (
-                    <JobProgress
-                      key={job.id}
-                      job={job}
-                      busy={cancelJob.isPending || retryJob.isPending}
-                      onCancel={(jobId) => cancelJob.mutate(jobId)}
-                      onRetry={(jobId) => retryJob.mutate(jobId)}
-                    />
+                  {jobRuns.map((run, index) => (
+                    <section
+                      key={run.pipelineId ?? 'single-stages'}
+                      className={styles.jobRun}
+                      aria-label={
+                        run.pipelineId ? `Pipeline run ${jobRuns.length - index}` : 'Single stages'
+                      }
+                    >
+                      <header className={styles.jobRunHead}>
+                        <span className={styles.jobRunTitle}>
+                          {run.pipelineId
+                            ? `Run ${jobRuns.length - index}${index === 0 ? ' · latest' : ''}`
+                            : 'Single stages'}
+                        </span>
+                        <span className={styles.jobRunMeta}>
+                          {formatDateTimeCompact(run.queuedAt)}
+                        </span>
+                        <span className={styles.jobRunMeta}>
+                          {run.completed}/{run.jobs.length} completed
+                          {run.failed ? ` · ${run.failed} failed` : ''}
+                          {run.active ? ` · ${run.active} in progress` : ''}
+                        </span>
+                      </header>
+                      {run.jobs.map((job) => (
+                        <JobProgress
+                          key={job.id}
+                          job={job}
+                          busy={cancelJob.isPending || retryJob.isPending}
+                          onCancel={(jobId) => cancelJob.mutate(jobId)}
+                          onRetry={(jobId) => retryJob.mutate(jobId)}
+                        />
+                      ))}
+                    </section>
                   ))}
                 </div>
               )}

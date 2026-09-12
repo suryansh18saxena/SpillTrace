@@ -13,6 +13,8 @@
   );
   box-shadow: var(--highlight-top);
   overflow: hidden;
+  /* Never let a parent flex column squash the card and clip its text. */
+  flex-shrink: 0;
 }
 
 /* A thin status rail on the left edge. */
