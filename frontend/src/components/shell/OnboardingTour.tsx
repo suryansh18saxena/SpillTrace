@@ -19,7 +19,26 @@ interface TourStep {
   body: string;
 }
 
+/**
+ * The first two steps deliberately explain the *product* before the furniture.
+ * Someone seeing this for the first time needs to know what the thing does
+ * before being told where the search box is; a tour that starts at the sidebar
+ * teaches navigation to a person who does not yet know what they are navigating.
+ *
+ * A step whose `target` matches nothing renders as a centred card — that is how
+ * the two opening steps are shown.
+ */
 const STEPS: TourStep[] = [
+  {
+    target: '[data-tour="none"]',
+    title: 'What this system is for',
+    body: 'Ships sometimes wash out their tanks at sea and leave a slick of oil behind. A radar satellite can see that slick from space, at night and through cloud. SPILLTRACE finds it, checks it is really oil, works out where it started, and lists the ships that were there.',
+  },
+  {
+    target: '[data-tour="none"]',
+    title: 'How it reaches an answer',
+    body: 'Photograph the sea by radar → find the dark patch → rule out wind and algae that look identical → run the wind and current backwards to find where the oil started → list the ships in that area at that time → score each one on six separate factors. Every case can be read back step by step in its Walkthrough tab.',
+  },
   {
     target: '[data-tour="sidebar"]',
     title: 'Everything has a place',
@@ -45,6 +64,11 @@ const STEPS: TourStep[] = [
     title: 'When in doubt, read this',
     body: 'What every score, band, contour and badge means — and, just as important, what each one does not mean.',
   },
+  {
+    target: '[data-tour="none"]',
+    title: 'One last thing, and it matters',
+    body: 'Nothing here establishes who is responsible for a spill. A high score means "ask this ship first", not "this ship did it". Every screen that shows a score says so, and the ranking is capped whenever the evidence cannot actually separate the top candidates.',
+  },
 ];
 
 const PAD = 8;
@@ -59,7 +83,8 @@ function visibleRect(selector: string): DOMRect | null {
 }
 
 /**
- * A five-step first-run walkthrough.
+ * The first-run walkthrough: what the product does, then where things are, then
+ * the one rule that matters most.
  *
  * Starts once, automatically, on the first visit to the dashboard; it can be
  * replayed from the account menu, the command palette or the help page. It is
@@ -198,7 +223,7 @@ export function OnboardingTour() {
           <div className={styles.tourDots} aria-hidden="true">
             {STEPS.map((item, index) => (
               <span
-                key={item.target}
+                key={item.title}
                 className={cx(styles.tourDot, index === step && styles.tourDotActive)}
               />
             ))}

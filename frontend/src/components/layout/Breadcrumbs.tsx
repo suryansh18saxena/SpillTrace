@@ -16,6 +16,7 @@ interface Crumb {
 
 const STATIC_LABELS: Record<string, string> = {
   ...ROUTE_LABELS,
+  walkthrough: 'Walkthrough',
   spill: 'Spill details',
   drift: 'Drift & origin',
   ranking: 'Vessel ranking',

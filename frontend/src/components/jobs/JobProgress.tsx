@@ -3,7 +3,9 @@
 import { Button } from '@/components/ui/Button';
 import { ProgressBar, type ProgressTone } from '@/components/ui/ProgressBar';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { ExplainTip } from '@/components/explain/ExplainTip';
 import { cx } from '@/lib/cx';
+import { stageExplainer } from '@/lib/explain';
 import { formatDateTimeCompact, formatElapsed, humanizeIdentifier, truncateId } from '@/lib/format';
 import type { Job } from '@/lib/api/types';
 import { JobStatusBadge } from './JobStatusBadge';
@@ -38,7 +40,10 @@ export function JobProgress({ job, onCancel, onRetry, busy = false, className }:
   const isActive = job.status === 'QUEUED' || job.status === 'RUNNING';
   const isFailed = job.status === 'FAILED';
   const tone = TONE_FOR_STATUS[job.status] ?? 'neutral';
-  const label = humanizeIdentifier(job.job_type);
+  // The everyday name leads; the machine name stays beside it so a log line and
+  // a screen can still be matched up.
+  const stage = stageExplainer(job.job_type);
+  const label = stage?.plain ?? humanizeIdentifier(job.job_type);
 
   return (
     <article
@@ -51,7 +56,11 @@ export function JobProgress({ job, onCancel, onRetry, busy = false, className }:
       )}
     >
       <div className={styles.jobHead}>
-        <span className={styles.jobType}>{job.job_type}</span>
+        <span className={styles.jobType}>
+          {label}
+          {stage ? <ExplainTip explainer={stage} /> : null}
+        </span>
+        <code className={styles.jobTypeCode}>{job.job_type}</code>
         <JobStatusBadge status={job.status} />
         <span className={styles.jobSpacer} />
         <div className={styles.jobActions}>

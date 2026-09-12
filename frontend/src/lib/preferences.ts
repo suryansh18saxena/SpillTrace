@@ -13,7 +13,9 @@
 const PREFIX = 'spilltrace:pref:';
 
 export const PREF_SIDEBAR_COLLAPSED = 'sidebar-collapsed';
-export const PREF_TOUR_DONE = 'tour-done-v1';
+// Bumped to v2 when the tour was rewritten to explain the product rather than
+// the navigation — everyone should see the new first two steps once.
+export const PREF_TOUR_DONE = 'tour-done-v2';
 export const PREF_NOTIFICATIONS_SEEN = 'notifications-seen-at';
 
 export function readPreference(key: string): string | null {

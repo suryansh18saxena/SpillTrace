@@ -1,0 +1,665 @@
+<!doctype html>
+<!--
+  SPILLTRACE User Guide — source for SPILLTRACE_User_Guide.pdf (repository root).
+
+  Every screen described here was read from the running application rather than from
+  the code, so the headings, buttons, filters and table columns are what a user
+  actually sees. Re-read the app before editing a section.
+
+  To regenerate the PDF (needs a Chrome/Chromium and Playwright):
+
+    node -e "const{chromium}=require('playwright');(async()=>{
+      const b=await chromium.launch({channel:'chrome',headless:true});
+      const p=await b.newPage();
+      await p.goto('file://'+require('path').resolve('docs/user-guide.html'),{waitUntil:'networkidle'});
+      await p.emulateMedia({media:'print'});
+      await p.pdf({path:'SPILLTRACE_User_Guide.pdf',format:'A4',printBackground:true,
+        displayHeaderFooter:true,headerTemplate:'<div></div>',
+        footerTemplate:'<div style=\"width:100%;font-size:7.5pt;color:#8494a6;font-family:Segoe UI,Arial,sans-serif;padding:0 14mm;display:flex;justify-content:space-between;\"><span>SPILLTRACE — User Guide · SIH26143 · Team OnlyBans</span><span class=\"pageNumber\"></span></div>',
+        margin:{top:'14mm',bottom:'16mm',left:'14mm',right:'14mm'}});
+      await b.close();})()"
+
+  The honesty vocabulary of docs/DESIGN_SYSTEM.md §1 applies to this document too:
+  "responsible" and "legal probability" appear only inside negations.
+-->
+
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SPILLTRACE — User Guide</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.55;
+    color: #17202c;
+  }
+
+  h1, h2, h3, h4 { line-height: 1.2; margin: 0; }
+  p { margin: 0 0 .55em; }
+  ul, ol { margin: 0 0 .6em; padding-left: 1.15em; }
+  li { margin-bottom: .3em; }
+  code { font-family: "Consolas", "Menlo", monospace; font-size: .88em;
+         background: #eef2f7; padding: .08em .32em; border-radius: 3px; color: #1c3a5e; }
+
+  /* ---------------- cover ---------------- */
+  .cover { height: 252mm; display: flex; flex-direction: column; justify-content: center;
+           page-break-after: always; }
+  .cover .kicker { font-family: Consolas, monospace; font-size: 9pt; letter-spacing: .16em;
+                   text-transform: uppercase; color: #4a6a92; }
+  .cover .kicker { color: #4a6a92; }
+  .cover h1 { font-size: 40pt; letter-spacing: -.025em; margin: 6mm 0 4mm; color: #0d1b2a; }
+  .cover .sub { font-size: 14pt; color: #41556e; max-width: 135mm; line-height: 1.45; }
+  .cover .rule { height: 3px; width: 48mm; background: linear-gradient(90deg,#1d4ed8,#0891b2);
+                 margin: 8mm 0; border-radius: 2px; }
+  .cover .meta { margin-top: 10mm; font-size: 9.5pt; color: #5b7086; }
+  .cover .meta b { color: #17202c; }
+
+  /* ---------------- structure ---------------- */
+  .chapter { page-break-before: always; }
+  h2.ch { font-size: 20pt; color: #0d1b2a; letter-spacing: -.02em;
+          padding-bottom: 2.5mm; border-bottom: 2px solid #1d4ed8; margin-bottom: 4mm; }
+  h3 { font-size: 12.5pt; color: #12345c; margin: 6mm 0 2mm; }
+  h4 { font-size: 10.5pt; color: #1d4ed8; margin: 4mm 0 1.5mm;
+       text-transform: uppercase; letter-spacing: .06em; font-size: 8.6pt; }
+
+  .lede { font-size: 11pt; color: #3c5169; margin-bottom: 4mm; }
+
+  /* page block: one screen of the app */
+  .screen { border: 1px solid #d9e2ec; border-radius: 5px;
+            padding: 4mm 5mm; margin-bottom: 4.5mm; background: #fbfcfe; }
+  .screen h3 { margin-top: 0; page-break-after: avoid; display: flex; align-items: baseline; gap: 3mm; }
+  .screen h3 .path { font-family: Consolas, monospace; font-size: 8.5pt; color: #64788f;
+                     font-weight: normal; }
+  .badge { display: inline-block; font-size: 7.6pt; font-weight: 700; letter-spacing: .06em;
+           padding: .15em .55em; border-radius: 3px; text-transform: uppercase; vertical-align: 1px; }
+  .badge.admin { background: #fde7c7; color: #8a5200; }
+  .badge.all   { background: #d8ebff; color: #10457f; }
+
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 3mm; font-size: 9.2pt; }
+  th { text-align: left; background: #eef3f9; color: #12345c; font-weight: 600;
+       padding: 1.6mm 2mm; border-bottom: 1.5px solid #c9d8e8; }
+  td { padding: 1.6mm 2mm; border-bottom: 1px solid #e4ebf3; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+
+  .note { border-left: 3px solid #1d4ed8; background: #f2f7fd; padding: 2.5mm 4mm;
+          margin: 2.5mm 0; font-size: 9.5pt; page-break-inside: avoid; }
+  .warn { border-left: 3px solid #c2870a; background: #fdf7ea; padding: 2.5mm 4mm;
+          margin: 2.5mm 0; font-size: 9.5pt; page-break-inside: avoid; }
+  .warn b, .note b { color: #0d1b2a; }
+
+  ol.steps { counter-reset: s; list-style: none; padding-left: 0; }
+  ol.steps > li { counter-increment: s; position: relative; padding-left: 9mm;
+                  margin-bottom: 2.5mm; page-break-inside: avoid; }
+  ol.steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: .05em;
+    width: 6mm; height: 6mm; border-radius: 50%; background: #1d4ed8; color: #fff;
+    font-size: 8.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  .tight li { margin-bottom: .18em; }
+  .two { column-count: 2; column-gap: 8mm; }
+  table.toc td { padding: 2.6mm 2mm; }
+  table.toc td:first-child { width: 44%; color: #0d1b2a; }
+  .kbd { font-family: Consolas, monospace; font-size: .85em; border: 1px solid #c3d0de;
+         border-bottom-width: 2px; border-radius: 3px; padding: .05em .4em; background: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ============================= COVER ============================= -->
+<section class="cover">
+  <div class="kicker">Smart India Hackathon 2026 · Problem statement SIH26143 · Team OnlyBans</div>
+  <h1>SPILLTRACE<br>User Guide</h1>
+  <div class="rule"></div>
+  <p class="sub">What every screen shows, how to use it, and who can do what — written for
+     someone opening the system for the first time.</p>
+  <div class="meta">
+    Covers the console at <b>http://localhost:3000</b><br>
+    Every page in this guide was read from the running application.
+  </div>
+</section>
+
+
+<!-- ============================= CONTENTS ============================= -->
+<section class="chapter">
+  <h2 class="ch">Contents</h2>
+  <table class="toc">
+    <tr><td><b>1 · What this system does</b></td><td>The chain from satellite to shortlist, and the rule that governs all of it</td></tr>
+    <tr><td><b>2 · Signing in, and who can do what</b></td><td>Accounts, analyst vs administrator, the sidebar, shortcuts</td></tr>
+    <tr><td><b>3 · The overview screens</b></td><td>Dashboard · Situational map · Analytics</td></tr>
+    <tr><td><b>4 · Registering a new case</b></td><td>Step by step, with the two limits and what happens after you press Run</td></tr>
+    <tr><td><b>5 · Inside a case — the six tabs</b></td><td>Walkthrough · Map · Spill details · Drift &amp; origin · Vessel ranking · Evidence report</td></tr>
+    <tr><td><b>6 · Intelligence screens</b></td><td>Vessel registry · Activity feed · Compare cases</td></tr>
+    <tr><td><b>7 · Administrator screens</b></td><td>System status · ML Ops · How to read this</td></tr>
+    <tr><td><b>8 · A five-minute walkthrough for visitors</b></td><td>What to show, in what order, and the three questions you will be asked</td></tr>
+    <tr><td><b>9 · When something looks wrong</b></td><td>Common confusions, and a glossary</td></tr>
+  </table>
+  <div class="note" style="margin-top:6mm">
+    <b>In a hurry?</b> Read section 2 to get in, then open any case and press the
+    <b>Walkthrough</b> tab — that one screen explains the whole product using the real numbers
+    from that investigation.
+  </div>
+</section>
+
+<!-- ============================= 1. WHAT IT DOES ============================= -->
+<section class="chapter">
+  <h2 class="ch">1 · What this system does</h2>
+
+  <p class="lede">Ships sometimes wash out their tanks at sea and leave a slick of oil behind.
+  A radar satellite can see that slick from space, at night and through cloud. SPILLTRACE finds
+  it, checks it is really oil, works out where it started, and lists the ships that were there.</p>
+
+  <h3>The chain, in order</h3>
+  <table>
+    <tr><th style="width:34%">Step</th><th style="width:30%">Machine name</th><th>What it actually does</th></tr>
+    <tr><td><b>Find a satellite pass</b></td><td><code>scene.search</code></td><td>Ask the European Copernicus catalogue which Sentinel-1 radar images cover this water in the chosen dates.</td></tr>
+    <tr><td><b>Fetch the image</b></td><td><code>scene.download</code></td><td>Download it and record its checksum, so the exact file behind a result can be identified later.</td></tr>
+    <tr><td><b>Clean up the radar image</b></td><td><code>sar.preprocess</code></td><td>Rescale it so that "dark" means the same thing everywhere in the image.</td></tr>
+    <tr><td><b>Look for oil</b></td><td><code>ml.detect</code></td><td>A trained neural network scores every pixel 0–1 for how oil-like it looks; dark shapes become outlines.</td></tr>
+    <tr><td><b>Rule out the look-alikes</b></td><td><code>detect.verify</code></td><td>Seven physical checks against wind and shape, because low wind and algae look identical to oil.</td></tr>
+    <tr><td><b>Get the wind and current</b></td><td><code>env.fetch</code></td><td>Measured weather for that exact patch of sea at that exact hour, from Copernicus Marine.</td></tr>
+    <tr><td><b>Run the sea backwards</b></td><td><code>drift.hindcast</code></td><td>Push thousands of particles back through the real wind and current to find where the oil started.</td></tr>
+    <tr><td><b>Collect ship broadcasts</b></td><td><code>ais.ingest</code></td><td>Gather the public AIS radio broadcasts for that area and window.</td></tr>
+    <tr><td><b>Throw out bad ship data</b></td><td><code>ais.clean</code></td><td>Flag impossible positions and speeds, each with the reason it was rejected.</td></tr>
+    <tr><td><b>Draw each ship's path</b></td><td><code>traj.build</code></td><td>Join scattered positions into tracks, marking every stretch where reporting stopped.</td></tr>
+    <tr><td><b>Find who was there</b></td><td><code>correlate</code></td><td>Keep only the ships inside both the origin region and the discharge window.</td></tr>
+    <tr><td><b>Weigh the evidence</b></td><td><code>score</code></td><td>Score each remaining ship on six separate factors, then combine them with fixed weights.</td></tr>
+    <tr><td><b>Write the evidence report</b></td><td><code>report.build</code></td><td>Assemble every source, timestamp, model version and caveat into one document.</td></tr>
+  </table>
+
+  <div class="warn">
+    <b>The rule that governs everything.</b> Nothing here establishes who is responsible for a
+    spill. A high score means <i>"ask this ship first"</i>, not <i>"this ship did it"</i>. The
+    nearest ship is not automatically the source, a gap in a ship's radio reporting is never
+    treated as wrongdoing, and a score is not a legal probability. Every screen that shows a
+    score says so in writing.
+  </div>
+
+  <h3>Two things you will see everywhere</h3>
+  <table>
+    <tr><th style="width:32%">Thing</th><th>What it means</th></tr>
+    <tr><td><b>REAL / SYNTHETIC / MIXED</b> badge</td>
+        <td>Where the data came from. REAL is live satellite, ocean and ship data. SYNTHETIC is generated for demonstration. MIXED is both — for example a real trained model run over a generated image. It is always written as a word, never colour alone.</td></tr>
+    <tr><td><b>LOW / MODERATE / HIGH</b> band</td>
+        <td>How strong the evidence is for a candidate ship. The server decides it, and it gets held down to MODERATE whenever the evidence cannot actually separate the top candidates. <b>So a score of 0.94 can still read MODERATE</b> — and when it does, the reason is printed beside it.</td></tr>
+  </table>
+</section>
+
+<!-- ============================= 2. SIGNING IN / ROLES ============================= -->
+<section class="chapter">
+  <h2 class="ch">2 · Signing in, and who can do what</h2>
+
+  <p class="lede">Open <code>http://localhost:3000</code> and sign in. There are two roles. Your
+  current role is always shown in the <b>top-right corner</b> of the screen, next to your name.</p>
+
+  <h3>Accounts on this machine</h3>
+  <table>
+    <tr><th style="width:40%">Email</th><th style="width:27%">Password</th><th>Role</th></tr>
+    <tr><td><code>admin@spilltrace.example.com</code></td><td><code>SpillAdmin!2026</code></td><td><b>Administrator</b></td></tr>
+    <tr><td><code>ui-review@spilltrace.in</code></td><td><code>ReviewPass!2026</code></td><td><b>Administrator</b></td></tr>
+    <tr><td><code>ui-review-analyst@spilltrace.in</code></td><td><code>ReviewPass!2026</code></td><td>Analyst</td></tr>
+  </table>
+  <p style="font-size:9pt;color:#5b7086">These are development accounts on the local database
+  only. Passwords must be at least 12 characters.</p>
+
+  <h3>What each role can do</h3>
+  <table>
+    <tr><th style="width:46%">Task</th><th style="width:27%">Analyst</th><th>Administrator</th></tr>
+    <tr><td>Open and read cases</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Create a new case and run the pipeline</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Read spill, drift, ranking and the evidence report</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Vessel registry, activity feed, compare, analytics</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>See which data sources are real or synthetic</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td><b>ML Ops</b> — model versions and their measured accuracy</td><td>No</td><td>Yes</td></tr>
+    <tr><td><b>System status</b> — component health, job statistics</td><td>No</td><td>Yes</td></tr>
+  </table>
+
+  <div class="note">
+    <b>The analyst does the investigating; the administrator looks after the machine.</b>
+    An analyst opens cases, reads evidence and decides what is worth following up. An
+    administrator additionally checks that the database, queue and storage are healthy, which
+    detection model is live, and whether any pipeline step is failing. Knowing whether data is
+    synthetic is <i>not</i> an administrative privilege — every signed-in user can see that,
+    because it changes how the result should be read.
+  </div>
+
+  <div class="warn">
+    <b>"I cannot open the admin pages."</b> Check the top-right corner. If it says ANALYST,
+    the pages are not missing — your account simply does not have them. Sign out and sign in
+    with an administrator account from the table above. An analyst who types the address
+    directly gets a clear "Administrator access required" message rather than a broken page.
+  </div>
+
+  <h3>The sidebar, grouped</h3>
+  <table>
+    <tr><th style="width:22%">Group</th><th>Screens</th></tr>
+    <tr><td><b>Overview</b></td><td>Dashboard · Situational map · Analytics</td></tr>
+    <tr><td><b>Investigations</b></td><td>Cases · New case · Compare cases</td></tr>
+    <tr><td><b>Intelligence</b></td><td>Vessel registry · Activity feed</td></tr>
+    <tr><td><b>System</b></td><td>ML Ops <span class="badge admin">admin</span> · System status <span class="badge admin">admin</span> · How to read this</td></tr>
+  </table>
+
+  <p><b>Two shortcuts worth knowing.</b> <span class="kbd">Ctrl</span>+<span class="kbd">K</span>
+  opens a search box from any screen — type a case name or a screen name and jump straight there.
+  And on every screen there is a blue <b>"What am I looking at?"</b> panel explaining that screen
+  in plain words; press <b>Hide</b> once and it collapses everywhere until you bring it back.</p>
+</section>
+
+<!-- ============================= 3. OVERVIEW SCREENS ============================= -->
+<section class="chapter">
+  <h2 class="ch">3 · The overview screens</h2>
+
+  <div class="screen">
+    <h3>Dashboard <span class="path">/dashboard</span> <span class="badge all">everyone</span></h3>
+    <p>Where you land after signing in. The overview of everything you have running.</p>
+    <h4>What is on it</h4>
+    <ul class="tight">
+      <li><b>Four counters</b> — Investigations, Slicks detected, Candidate vessels ranked, and HIGH-band investigative signals.</li>
+      <li><b>Recent investigations</b> — your latest cases with their status, data badge, slick count and candidate count. Click any row to open it.</li>
+      <li><b>Cases opened per week</b> and <b>Evidence strength across candidates</b> — with a <b>Chart / Table</b> toggle if you prefer numbers.</li>
+      <li><b>Look-alike verification</b> and <b>Data sources</b> — how many detections survived the checks, and which feeds are live.</li>
+    </ul>
+    <h4>How to use it</h4>
+    <p>Read the four counters for scale, then click the newest case in "Recent investigations".
+    If a figure is unknown it shows as a dash — never as zero, because "we could not count this"
+    and "there were none" are different facts.</p>
+  </div>
+
+  <div class="screen">
+    <h3>Situational map <span class="path">/map</span> <span class="badge all">everyone</span></h3>
+    <p>Every investigation drawn on one chart of the sea.</p>
+    <h4>What is on it</h4>
+    <ul class="tight">
+      <li>Each <b>blue box</b> is an area someone is investigating. Each <b>yellow dot</b> is the centre of a slick detected there.</li>
+      <li><b>Status filters</b> at the top of the side panel: All, Running, Completed, Failed, Draft — each with a live count.</li>
+      <li><b>Fit all</b> zooms out to show every case at once.</li>
+      <li>A <b>basemap switcher</b> (top-right of the map): Satellite, Ocean, Dark, Offline — plus a <b>Globe view</b> toggle.</li>
+    </ul>
+    <h4>How to use it</h4>
+    <p>Click a box, a dot or a row in the list to select that case, then use the arrow to open it.</p>
+    <div class="warn"><b>Careful:</b> a yellow dot marks where the oil <i>was seen</i>, which is not
+    where it came from. Where it came from is the purple region on each case's own map.</div>
+  </div>
+
+  <div class="screen">
+    <h3>Analytics <span class="path">/analytics</span> <span class="badge all">everyone</span></h3>
+    <p>Patterns across all your cases at once, rather than inside one.</p>
+    <h4>What is on it — four numbered sections</h4>
+    <ol class="tight">
+      <li><b>Throughput</b> — cases opened per week, slicks detected per week.</li>
+      <li><b>Look-alikes and evidence strength</b> — verification outcomes, and how bands are spread across candidates.</li>
+      <li><b>Investigative scores</b> — the score distribution, and mean score per factor.</li>
+      <li><b>Vessels and provenance</b> — which ships are most often ranked, the data mix, and model accuracy over time.</li>
+    </ol>
+    <h4>How to use it</h4>
+    <p>Pick a time range — <b>All time</b>, <b>Last 30 days</b> or <b>Last 90 days</b> — and every
+    chart below follows it. Each chart has a <b>Chart / Table</b> toggle.</p>
+    <div class="warn"><b>Careful:</b> every figure is counted from your own cases. It is not a
+    survey of Indian waters.</div>
+  </div>
+</section>
+
+<!-- ============================= 4. NEW CASE ============================= -->
+<section class="chapter">
+  <h2 class="ch">4 · Registering a new case, step by step</h2>
+
+  <p class="lede">A case is one patch of sea plus one stretch of time. Everything the system finds
+  is limited to those two things. Open <b>New case</b> in the sidebar, or press
+  <span class="kbd">Ctrl</span>+<span class="kbd">K</span> and type "new case".</p>
+
+  <ol class="steps">
+    <li><b>Draw the area on the map.</b> Choose <b>Rectangle</b> for a quick box, or <b>Polygon</b>
+        to click corner by corner around an irregular coastline. With Polygon, double-click or
+        press <span class="kbd">Enter</span> to close the shape; <b>Undo corner</b> removes the
+        last point and <b>Clear</b> starts over.</li>
+
+    <li><b>Or type the bounds instead.</b> Under "Area of interest" there are four boxes —
+        <b>West, South, East, North</b> — in decimal degrees. Fill them in and press
+        <b>Apply bounds</b>. This is the reliable way to reproduce an exact area.</li>
+
+    <li><b>Give it a title.</b> Required. Write something you will recognise in the case list,
+        for example "Gulf of Kutch — suspected operational discharge".</li>
+
+    <li><b>Add a description.</b> Optional, but it is context for whoever reads the evidence
+        report later.</li>
+
+    <li><b>Set the time window — the easy way.</b> Press one of the <b>Quick window</b> buttons:
+        <b>Last 24 hours</b>, <b>Last 7 days</b> or <b>Last 30 days</b>. Both fields fill in at
+        once. This is the dependable way to do it in front of an audience.</li>
+
+    <li><b>Or set it by hand.</b> <b>Start time (UTC)</b> and <b>End time (UTC)</b> are both
+        required. Click the small calendar glyph at the right-hand edge of a field to open the
+        picker, or type into the segments. Two things to watch: the field shows the order your
+        <i>browser</i> uses (a US-locale Chrome writes mm/dd/yyyy), and the value means UTC, not
+        your local clock. The line underneath always echoes back the exact window it understood
+        — read it before pressing Create.</li>
+
+    <li><b>Press Create case.</b> The case is created and opens on its own map screen.</li>
+
+    <li><b>Run the chain.</b> On the case screen press <b>Run pipeline</b>, choose the mode, and
+        confirm. Watch progress under the <b>Pipeline</b> tab in the right-hand panel — every
+        step appears with its everyday name, a progress bar and its status.</li>
+  </ol>
+
+  <h3>The two limits, and why they exist</h3>
+  <table>
+    <tr><th style="width:34%">Limit</th><th>Reason</th></tr>
+    <tr><td><b>Area at most 250,000 km²</b></td><td>A bigger box means more satellite images and a much slower run, with no gain in precision.</td></tr>
+    <tr><td><b>Window at most 30 days</b></td><td>Oil drifts. Running the sea backwards over a longer gap spreads the answer so wide it stops being useful.</td></tr>
+  </table>
+
+  <div class="note">
+    <b>Do not have real satellite credentials to hand?</b> There is a repeatable demonstration
+    scenario that generates a complete fake case — fake slick, fake weather, fake ships — so the
+    whole chain can be shown end to end. Everything it produces is labelled SYNTHETIC everywhere
+    it appears and can never be mistaken for a real observation.
+  </div>
+
+  <h3>What happens after you press Run</h3>
+  <p>The steps run in the order shown in section 1, each as its own job. You can leave the screen;
+  the run continues. Completed and failed runs appear in the bell icon in the top bar, and the
+  whole history is in the <b>Activity feed</b>. If a step fails, it says which step and why —
+  a failed data source is always a stated reason, never a silent gap.</p>
+</section>
+
+<!-- ============================= 5. INSIDE A CASE ============================= -->
+<section class="chapter">
+  <h2 class="ch">5 · Inside a case — the six tabs</h2>
+
+  <p class="lede">Open any case and you get six tabs. They are in the order an investigation
+  actually happens, so reading left to right tells the story.</p>
+
+  <div class="screen">
+    <h3>Walkthrough <span class="path">/cases/&lt;id&gt;/walkthrough</span></h3>
+    <p><b>Start here if anything is unclear.</b> The whole investigation told as eight numbered
+    steps in plain English, each carrying the real figure that step produced in this case, and
+    each with a "Careful:" line saying what that step does <i>not</i> prove.</p>
+    <p>This is the tab to show someone who has never seen the system before.</p>
+  </div>
+
+  <div class="screen">
+    <h3>Map <span class="path">/cases/&lt;id&gt;</span></h3>
+    <p>The investigation on one map, with everything switchable.</p>
+    <h4>The eight layers, each with its own on/off switch and opacity slider</h4>
+    <table>
+      <tr><th style="width:36%">Layer</th><th>What it is</th></tr>
+      <tr><td>Area of interest</td><td>The box that was drawn when the case was created.</td></tr>
+      <tr><td>Sentinel-1 scene footprint</td><td>The patch the satellite image actually covers.</td></tr>
+      <tr><td>Origin probability region</td><td>Where the oil plausibly started — nested contours, not a point.</td></tr>
+      <tr><td>Reverse-drift particles</td><td>The individual particles pushed backwards through the weather.</td></tr>
+      <tr><td>Oil probability</td><td>The model's raw per-pixel output painted over the map — what it actually saw.</td></tr>
+      <tr><td>Detected slick</td><td>The final outline the detection produced.</td></tr>
+      <tr><td>Vessel trajectories</td><td>The path each ship took through the water.</td></tr>
+      <tr><td>Vessels</td><td>Ship positions. Hover any one for its details.</td></tr>
+    </table>
+    <p>There is also a <b>timeline</b> along the bottom with a <b>Play</b> button, so you can watch
+    the ships move through the window, and a right-hand panel with three tabs:
+    <b>Layers</b>, <b>Pipeline</b> (every step and its status) and <b>Candidates</b>.</p>
+  </div>
+
+  <div class="screen">
+    <h3>Spill details <span class="path">/cases/&lt;id&gt;/spill</span></h3>
+    <p>The slick itself, and whether it could be something harmless.</p>
+    <ul class="tight">
+      <li><b>Four figures</b> — slick area, detection confidence, verification confidence, and when the image was acquired.</li>
+      <li><b>Look-alike verification</b> — a table of the seven checks: Rule, Outcome, Observed, Threshold, Weight, and "What it means" in plain words.</li>
+      <li><b>Where — and what the model saw</b> — a <b>Before · scene</b> / <b>After · model output</b> toggle over the map.</li>
+      <li><b>Conditions at acquisition</b> — the wind the checks were evaluated against — and the full <b>Run manifest</b>.</li>
+    </ul>
+    <div class="warn"><b>Careful:</b> detection confidence and verification confidence measure two
+    different things and are deliberately never multiplied together. Neither is a probability that
+    any ship discharged anything.</div>
+  </div>
+
+  <div class="screen">
+    <h3>Drift &amp; origin <span class="path">/cases/&lt;id&gt;/drift</span></h3>
+    <p>Where the oil plausibly started.</p>
+    <ul class="tight">
+      <li><b>Origin confidence</b> (how tightly the particles bunched), <b>region area</b>, the <b>inferred discharge window</b>, and the <b>number of particles</b>.</li>
+      <li><b>Probability contours</b> table — each contour with its probability mass, its area and what it means.</li>
+      <li><b>Simulation parameters</b> — engine, duration, time step, ensemble members and the random seed, so the run reproduces exactly.</li>
+      <li><b>Environmental forcing</b> — the wind and current variables used, with mean, min and max.</li>
+    </ul>
+    <div class="warn"><b>Careful:</b> this is a region, never an exact discharge coordinate, and it
+    is not a claim that a discharge happened. Small errors in wind grow the further back you run.</div>
+  </div>
+
+  <div class="screen">
+    <h3>Vessel ranking <span class="path">/cases/&lt;id&gt;/ranking</span></h3>
+    <p>The ships that were inside the origin region during the window.</p>
+    <p>The table has: <b>Rank · Candidate vessel · Investigative score · Evidence strength ·
+    Closest approach · Evidence</b>. Press <b>Show evidence</b> on any row to open all six
+    factors, their weights, and the arithmetic that produced the total — so every rank can be
+    argued with.</p>
+    <h4>The six factors</h4>
+    <div class="two">
+    <ul class="tight">
+      <li>Origin proximity — how close it came</li>
+      <li>Time match — how well its timing fits</li>
+      <li>Trajectory match — how well its path fits</li>
+      <li>Heading match</li>
+      <li>Speed match</li>
+      <li>AIS reliability — how complete its own reporting was</li>
+    </ul>
+    </div>
+    <div class="warn"><b>Careful:</b> this ranks who is worth asking about first. It never
+    establishes responsibility, and the nearest ship is not automatically the source. Notice the
+    panels at the top of this screen explaining what the score is, what proximity means, and
+    <b>why the bands are capped</b>.</div>
+  </div>
+
+  <div class="screen">
+    <h3>Evidence report <span class="path">/cases/&lt;id&gt;/report</span></h3>
+    <p>The full record as one document, rendered by the server exactly as it would be handed over.</p>
+    <p>Buttons: <b>Print</b>, <b>Download HTML</b>, <b>Download PDF</b>, <b>Reload</b>. Below it an
+    <b>Evidence artifacts</b> table lists every file the run produced — artifact, media type,
+    size, SHA-256 checksum, data mode and when it was produced.</p>
+    <div class="note">The checksum matters: it is how someone later proves the file they are
+    holding is the one this investigation actually used.</div>
+  </div>
+</section>
+
+<!-- ============================= 6. INTELLIGENCE ============================= -->
+<section class="chapter">
+  <h2 class="ch">6 · Intelligence screens</h2>
+
+  <div class="screen">
+    <h3>Vessel registry <span class="path">/vessels</span> <span class="badge all">everyone</span></h3>
+    <p>Every ship your cases have observed in AIS broadcasts, grouped by its radio identity (MMSI).</p>
+    <h4>What is on it</h4>
+    <ul class="tight">
+      <li><b>Three counters</b> — distinct vessels observed, ranked as a candidate at least once, and seen in more than one case.</li>
+      <li><b>A table</b>: Vessel · Provenance · Observed in · Candidate in · Best rank · Last seen (AIS).</li>
+      <li><b>Filters</b>: All · Candidates only · Seen in 2+ cases. Plus a search box (name, MMSI, IMO or call sign), a sort control, and a <b>Table / Cards</b> view toggle.</li>
+    </ul>
+    <h4>How to use it</h4>
+    <p>Search a ship you are curious about, or filter to "Seen in 2+ cases" to find repeat
+    appearances. Click a ship to open its own page with its track, AIS quality and history
+    across your cases.</p>
+    <div class="warn"><b>Two cautions printed on the screen itself.</b> Absence from this list is
+    not absence from the sea — public AIS coverage is incomplete. And appearing in several cases
+    is history, not evidence: a ship on a regular route through a busy lane will reappear simply
+    because it is often there.</div>
+  </div>
+
+  <div class="screen">
+    <h3>Activity feed <span class="path">/activity</span> <span class="badge all">everyone</span></h3>
+    <p>A running log of everything the system has done, newest first, grouped by day.</p>
+    <p>Each entry shows the step's everyday name with its machine name beneath — for example
+    <b>Slick detection</b> <code>ml.detect</code>, <b>Drift hindcast</b>
+    <code>drift.hindcast</code>. Filter by <b>All / Running / Completed / Failed</b>, each with a
+    live count, and narrow further by <b>Stage</b>, by <b>Case</b>, or with the search box.</p>
+    <p><b>Use it when</b> a case seems stuck, or you want to prove what ran and when.</p>
+  </div>
+
+  <div class="screen">
+    <h3>Compare cases <span class="path">/compare</span> <span class="badge all">everyone</span></h3>
+    <p>Two investigations side by side, so the same measurement can be read across both without
+    flipping between tabs.</p>
+    <h4>How to use it</h4>
+    <ol class="steps">
+      <li>Pick <b>Case A</b> from the first dropdown.</li>
+      <li>Pick <b>Case B</b> from the second.</li>
+      <li>Read down the sections — they line up row for row.</li>
+    </ol>
+    <h4>What it compares</h4>
+    <ul class="tight">
+      <li><b>Where and when the cases sit relative to each other</b> — both areas and both time windows.</li>
+      <li><b>Detections</b> — slick sizes and confidences.</li>
+      <li><b>Drift &amp; origin</b> — origin regions and confidences.</li>
+      <li><b>Candidate vessels</b> — the two ranked lists.</li>
+      <li><b>Vessels seen in both</b> — a table of Vessel · Type · In case A · In case B.</li>
+    </ul>
+    <div class="note"><b>What it is good for.</b> Two slicks in the same waters a week apart:
+    did the same ships appear in both? The "Vessels seen in both" table answers that in one look.
+    Remember it is a starting question, not a finding.</div>
+  </div>
+</section>
+
+<!-- ============================= 7. ADMIN ============================= -->
+<section class="chapter">
+  <h2 class="ch">7 · Administrator screens</h2>
+
+  <p class="lede">These two do not appear in an analyst's sidebar at all. They are about the health
+  of the system, not about any investigation.</p>
+
+  <div class="screen">
+    <h3>System status <span class="path">/admin</span> <span class="badge admin">administrator</span></h3>
+    <p>Is the machine healthy, and what is it plugged into? Refreshes every 15 seconds; there is
+    also a <b>Refresh</b> button.</p>
+    <h4>Five sections</h4>
+    <table>
+      <tr><th style="width:30%">Section</th><th>What it tells you</th></tr>
+      <tr><td><b>Components</b></td><td>Component · Status · Latency · Detail — the database, Redis queue, object storage, job queue and workers. Anything not UP needs attention.</td></tr>
+      <tr><td><b>Data sources</b></td><td>Port · Active implementation · Data mode · Credentials configured · Requires. This is where you see at a glance whether a feed is REAL or SYNTHETIC, and which environment variable a real one needs.</td></tr>
+      <tr><td><b>Model versions</b></td><td>Model · Version · Framework · Active · Evaluation — which detection model is live.</td></tr>
+      <tr><td><b>Recent jobs</b> and <b>Failed jobs</b></td><td>Queue counters (Queued, Running, Completed 24h, Failed 24h) and every failure with its stated reason.</td></tr>
+    </table>
+    <h4>The administrator's routine</h4>
+    <ol class="tight">
+      <li>All components UP?</li>
+      <li>Failed jobs in the last 24 hours — zero, or a reason you understand?</li>
+      <li>Data sources in the mode you expect for this demonstration?</li>
+      <li>The intended model marked active?</li>
+    </ol>
+    <div class="note">Credentials are read on the server only and never reach the browser. This
+    screen tells you <i>whether</i> a credential is configured, never what it is.</div>
+  </div>
+
+  <div class="screen">
+    <h3>ML Ops <span class="path">/ml-ops</span> <span class="badge admin">administrator</span></h3>
+    <p>Which detection model is in use, what it scored when it was tested, and how the queue is
+    behaving.</p>
+    <h4>What is on it</h4>
+    <ul class="tight">
+      <li><b>Registered model versions</b> — one card per model, with framework, input channels, input size, when it was registered, and its <b>Evaluation</b>.</li>
+      <li><b>Pipeline throughput</b> — Queued, Running, Completed (24h), Failed (24h).</li>
+      <li><b>Stage timing</b> — how long each step takes, per run.</li>
+      <li><b>Failure reasons</b> — grouped, so a repeating problem is obvious.</li>
+      <li><b>How models reach production</b> — the path from Dataset → Training → Evaluation → Registration → Serving.</li>
+    </ul>
+    <div class="warn"><b>Read the evaluation label carefully.</b> A model with no recorded
+    evaluation is shown as <i>unmeasured</i> — never as a score of zero. And where numbers come
+    from a validation split rather than an independent test set, the card says so, because the
+    two mean different things.</div>
+  </div>
+
+  <div class="screen">
+    <h3>How to read this <span class="path">/help</span> <span class="badge all">everyone</span></h3>
+    <p>The reference for every number on screen: the investigative score, the evidence bands, the
+    origin region, look-alike checks, AIS gaps and coverage, data provenance, the nine safeguards,
+    a glossary and the keyboard shortcuts. It also has a button to replay the introductory tour.</p>
+  </div>
+</section>
+
+<!-- ============================= 8. DEMO SCRIPT ============================= -->
+<section class="chapter">
+  <h2 class="ch">8 · A five-minute walkthrough for visitors</h2>
+
+  <p class="lede">If you have to show this to someone in five minutes, this order works.</p>
+
+  <ol class="steps">
+    <li><b>Start on the public page</b> (sign out, or open it in a private window). It states the
+        problem and the chain in one screen.</li>
+    <li><b>Sign in.</b> Point at the top-right corner: the role is visible. Point at the bottom of
+        the sidebar: it says whether any data in use is synthetic.</li>
+    <li><b>Dashboard.</b> Four counters, recent cases. Ten seconds — do not linger.</li>
+    <li><b>Open a case → Walkthrough tab.</b> Spend most of your time here. Scroll the eight steps.
+        Each has a real number and a "Careful:" line. This is the whole product in one screen.</li>
+    <li><b>Stop at step 7 and point at the band.</b> The top score is high, yet the label reads
+        MODERATE — because the evidence cannot separate the top candidates, so the system holds the
+        label down and prints the reason. <b>This is the single best thing to show.</b> Most systems
+        would just show a big number.</li>
+    <li><b>Jump to the Map tab.</b> Turn on <i>Oil probability</i> to show what the model actually
+        saw, then press <b>Play</b> on the timeline to move the ships.</li>
+    <li><b>Vessel ranking → Show evidence</b> on the top row. Six factors, weights, arithmetic.
+        Nothing hidden.</li>
+    <li><b>Finish on the Evidence report.</b> Sources, checksums, model version, caveats — what
+        would actually be handed to an investigator.</li>
+  </ol>
+
+  <h3>Three questions you will be asked</h3>
+  <table>
+    <tr><th style="width:38%">Question</th><th>Answer</th></tr>
+    <tr><td>"So it catches the ship that did it?"</td>
+        <td>No, and it does not claim to. It produces a shortlist of ships worth asking about, with the reasoning open to inspection. Deciding responsibility is a job for people with powers this system does not have.</td></tr>
+    <tr><td>"How accurate is the detection?"</td>
+        <td>Open ML Ops and read the card. Where the numbers come from a validation split rather than an independent test set, it says so. Nothing is claimed that was not measured.</td></tr>
+    <tr><td>"What if a ship switches off its transponder?"</td>
+        <td>A gap is shown as a gap, and it lowers confidence in what can be said about that ship. It never raises a ship's score, because there are many innocent reasons for a gap.</td></tr>
+  </table>
+</section>
+
+<!-- ============================= 9. TROUBLESHOOTING ============================= -->
+<section class="chapter">
+  <h2 class="ch">9 · When something looks wrong</h2>
+
+  <table>
+    <tr><th style="width:38%">What you see</th><th>What to do</th></tr>
+    <tr><td><b>ML Ops and System status are missing from the sidebar</b></td>
+        <td>You are signed in as an analyst. Check the top-right corner and sign in with an administrator account (section 2).</td></tr>
+    <tr><td><b>"Administrator access required" on the System status page</b></td>
+        <td>The same cause. The data-sources table below the message still works, because knowing whether data is synthetic is not an administrative privilege.</td></tr>
+    <tr><td><b>A case sits at RUNNING and does not move</b></td>
+        <td>Open the Pipeline tab on the case, or the Activity feed, and look for the step that has not completed. A failed step always states its reason.</td></tr>
+    <tr><td><b>The map shows a plain grid instead of satellite imagery</b></td>
+        <td>The imagery tiles could not be reached, so the map fell back to its offline basemap and said so. Every evidence layer still works. Use the basemap switcher to try again.</td></tr>
+    <tr><td><b>A number shows as a dash</b></td>
+        <td>That value is unknown, and is deliberately not shown as zero. "We could not measure this" and "this was zero" are different facts.</td></tr>
+    <tr><td><b>A score looks high but the band says MODERATE</b></td>
+        <td>Working as intended. The evidence cannot separate the top candidates, so the label is capped and the reason is printed next to it.</td></tr>
+    <tr><td><b>You want the explanation panels back after hiding them</b></td>
+        <td>Click the small "What am I looking at?" chip near the top of any screen.</td></tr>
+  </table>
+
+  <h3>Glossary</h3>
+  <table>
+    <tr><th style="width:26%">Term</th><th>Meaning</th></tr>
+    <tr><td><b>SAR / radar imaging</b></td><td>A satellite that sends its own pulses and listens for the echo, so it works at night and through cloud. Rough sea looks bright; smooth sea looks dark.</td></tr>
+    <tr><td><b>Sentinel-1</b></td><td>The free European radar satellites that supply every image here.</td></tr>
+    <tr><td><b>Slick</b></td><td>A thin film of oil on the surface. It damps the ripples underneath, which is what radar sees.</td></tr>
+    <tr><td><b>Look-alike</b></td><td>Something that is not oil but looks identical on radar: low wind, algae, a rain cell, river water.</td></tr>
+    <tr><td><b>AIS</b></td><td>The public radio broadcast carrying a ship's identity, position, speed and heading.</td></tr>
+    <tr><td><b>MMSI</b></td><td>The nine-digit radio identity a ship broadcasts. Everything here is grouped by it.</td></tr>
+    <tr><td><b>IMO number</b></td><td>A permanent seven-digit number for a hull. It survives renaming, but is not always broadcast.</td></tr>
+    <tr><td><b>Origin probability region</b></td><td>The area the oil plausibly came from, as nested contours — never an exact point.</td></tr>
+    <tr><td><b>Investigative score</b></td><td>Six weighted factors combined into one number from 0 to 1, used only to sort candidates.</td></tr>
+    <tr><td><b>Evidence band</b></td><td>The LOW / MODERATE / HIGH label. Decided by the server, and capped when candidates cannot be separated.</td></tr>
+    <tr><td><b>Provenance</b></td><td>REAL, SYNTHETIC or MIXED — where a result's inputs came from.</td></tr>
+    <tr><td><b>Area of interest (AOI)</b></td><td>The patch of sea a case covers, drawn when it was created.</td></tr>
+  </table>
+
+  <div class="warn" style="margin-top:6mm">
+    <b>If you remember one sentence from this guide:</b> SPILLTRACE narrows an ocean down to a
+    short list of ships worth asking about, and shows its working at every step — but it never
+    establishes who is responsible, and it is built so that it cannot pretend otherwise.
+  </div>
+</section>
+
+</body>
+</html>

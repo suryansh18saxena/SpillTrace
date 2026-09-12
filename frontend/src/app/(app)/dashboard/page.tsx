@@ -34,6 +34,7 @@ import {
   verificationCounts,
   weeklyBuckets,
 } from '@/lib/insights';
+import { ScreenGuide } from '@/components/explain/ScreenGuide';
 import layout from '@/components/layout/layout.module.css';
 import styles from './dashboard.module.css';
 
@@ -147,6 +148,8 @@ export default function DashboardPage() {
       </section>
 
       {universe.isError ? <ErrorState error={universe.error} onRetry={universe.refetch} /> : null}
+
+      <ScreenGuide />
 
       {/* ------------------------------------------------------------- KPIs */}
       <Reveal className={styles.kpis} stagger={0.07} y={22} data-tour="dashboard-kpis">

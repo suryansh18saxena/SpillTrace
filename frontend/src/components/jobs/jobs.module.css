@@ -140,3 +140,13 @@
   color: var(--color-text-muted);
   line-height: var(--leading-normal);
 }
+
+/* The machine stage name, kept beside its everyday name for traceability. */
+.jobTypeCode {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-neutral-subtle);
+}

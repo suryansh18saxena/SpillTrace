@@ -1,0 +1,514 @@
+/* The plain-language layer: screen guides, inline term tips, the case walkthrough. */
+
+/* ====================================================== ScreenGuide */
+
+.guide {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--glass-2-bg);
+  border: 1px solid var(--glass-2-border);
+  backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--elev-1);
+}
+
+/* A calm blue edge: this is help, never a warning. */
+.guide::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--space-3);
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--gradient-accent);
+}
+
+.guideIcon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-accent-text);
+}
+
+.guideText {
+  min-width: 0;
+  flex: 1;
+}
+
+.guideTitle {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.guideBody {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 88ch;
+}
+
+.guideCaution {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+  max-width: 88ch;
+}
+
+.guideCautionLabel {
+  flex: none;
+  font-weight: var(--weight-semibold);
+  color: var(--confidence-2-text);
+}
+
+.guideToggle {
+  flex: none;
+  align-self: flex-start;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.guideToggle:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.guideToggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Collapsed: a single quiet line that still says help is here. */
+.guideCollapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  background: var(--glass-1-bg);
+  border: 1px solid var(--glass-1-border);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.guideCollapsed:hover {
+  color: var(--color-accent-text);
+  border-color: var(--color-accent-border);
+}
+
+.guideCollapsed:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ====================================================== ExplainTip */
+
+.tipRoot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: baseline;
+}
+
+.tipButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  margin-inline-start: 0.3em;
+  border-radius: 50%;
+  font-family: var(--font-sans);
+  font-size: 0.72em;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  cursor: help;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.tipButton:hover,
+.tipButtonOpen {
+  color: var(--color-on-accent);
+  border-color: transparent;
+  background: var(--color-accent);
+}
+
+.tipButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.tipBubble {
+  position: absolute;
+  z-index: var(--z-popover);
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  width: max-content;
+  max-width: min(24rem, 80vw);
+  transform: translateX(-50%);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--glass-3-bg);
+  border: 1px solid var(--glass-3-border);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--elev-3);
+  text-align: left;
+  white-space: normal;
+  animation: tipIn 180ms var(--ease-out);
+}
+
+/* Near the top of the screen the bubble flips below the "?". */
+.tipBubbleBelow {
+  bottom: auto;
+  top: calc(100% + 0.5rem);
+}
+
+@keyframes tipIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tipBubble {
+    animation: none;
+  }
+}
+
+.tipTitle {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.tipBody {
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-normal);
+}
+
+.tipCaution {
+  display: block;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-normal);
+}
+
+/* ====================================================== CaseStory */
+
+.story {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.storyIntro {
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--glass-2-bg);
+  border: 1px solid var(--glass-2-border);
+  backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--elev-2);
+}
+
+.storyIntroTitle {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-3);
+  text-wrap: balance;
+}
+
+.storyIntroBody {
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 80ch;
+}
+
+.storyIntroCaution {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border-left: 2px solid var(--confidence-2);
+  background: var(--confidence-2-subtle);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 80ch;
+}
+
+/* The steps, as a vertical rail. */
+.steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-left: 2.75rem;
+}
+
+/* The spine linking the step markers. */
+.steps::before {
+  content: '';
+  position: absolute;
+  left: 1.06rem;
+  top: 1.5rem;
+  bottom: 1.5rem;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--color-accent-border),
+    var(--color-border) 60%,
+    transparent
+  );
+}
+
+.step {
+  position: relative;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--glass-2-bg);
+  border: 1px solid var(--glass-2-border);
+  backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--elev-1);
+  transition:
+    transform var(--duration-normal) var(--ease-spring-soft),
+    border-color var(--duration-normal) var(--ease-out);
+}
+
+.step:hover {
+  transform: translateX(2px);
+  border-color: var(--glass-3-border);
+}
+
+/* The numbered marker sitting on the spine. */
+.stepMarker {
+  position: absolute;
+  left: -2.75rem;
+  top: var(--space-5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-accent-border);
+  box-shadow: 0 0 0 4px var(--color-bg);
+}
+
+.stepMarkerDone {
+  color: var(--color-on-accent);
+  background: var(--gradient-accent);
+  border-color: transparent;
+}
+
+.stepMarkerSkipped {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+.stepHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.stepTitle {
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-tight);
+}
+
+.stepMachine {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.stepBody {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 80ch;
+}
+
+/* What this step actually produced, in this case. */
+.stepResult {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  border: 1px solid var(--color-accent-border);
+}
+
+.stepResultItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stepResultLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.stepResultValue {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.stepResultNote {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+}
+
+.stepCaution {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+  max-width: 80ch;
+}
+
+.stepCautionLabel {
+  flex: none;
+  font-weight: var(--weight-semibold);
+  color: var(--confidence-2-text);
+}
+
+.stepLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-accent-text);
+}
+
+.stepPending {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* The closing "so what" panel. */
+.storyEnd {
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--glass-2-bg);
+  border: 1px solid var(--glass-2-border);
+  backdrop-filter: blur(var(--glass-blur-md));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  box-shadow: var(--glass-highlight), var(--elev-2);
+}
+
+.storyEndTitle {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-3);
+}
+
+.storyEndBody {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 80ch;
+}
+
+.storyEndActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 40rem) {
+  .steps {
+    padding-left: 2.25rem;
+  }
+
+  .steps::before {
+    left: 0.81rem;
+  }
+
+  .stepMarker {
+    left: -2.25rem;
+    width: 1.625rem;
+    height: 1.625rem;
+    font-size: var(--text-2xs);
+  }
+
+  .step,
+  .storyIntro,
+  .storyEnd {
+    padding: var(--space-4);
+  }
+}

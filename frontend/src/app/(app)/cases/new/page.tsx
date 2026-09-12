@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { useCreateCase } from '@/lib/api/hooks';
 import { MAX_AOI_KM2, MAX_WINDOW_DAYS } from '@/lib/config';
+import { formatDuration, formatTimeRange } from '@/lib/format';
 import {
   localInputToIso,
   polygonBbox,
@@ -38,6 +39,37 @@ function issueFor(issues: ValidationIssue[], field: ValidationIssue['field']): s
  * problem instead of receiving a generic 422. The server still validates
  * everything: this is a courtesy, not the boundary.
  */
+/**
+ * "now" (or an offset from it) as the exact string a `datetime-local` input wants.
+ *
+ * Built from the UTC parts on purpose: the field is labelled UTC, so what it holds
+ * is the UTC instant and never the viewer's local wall clock.
+ */
+function utcInputValue(offsetMs = 0): string {
+  const date = new Date(Date.now() + offsetMs);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return (
+    `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}` +
+    `T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`
+  );
+}
+
+const HOUR_MS = 3_600_000;
+
+/**
+ * One-click windows.
+ *
+ * The browser's native date field is awkward: it renders in the browser's own
+ * locale order (a US-locale Chrome shows mm/dd/yyyy) while this field means UTC,
+ * and the calendar only opens from a small glyph at the right-hand edge. These
+ * buttons set both ends at once, which is the dependable way to fill this form.
+ */
+const WINDOW_PRESETS: ReadonlyArray<{ label: string; hours: number }> = [
+  { label: 'Last 24 hours', hours: 24 },
+  { label: 'Last 7 days', hours: 24 * 7 },
+  { label: 'Last 30 days', hours: 24 * 30 },
+];
+
 export default function NewCasePage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -80,6 +112,27 @@ export default function NewCasePage() {
         : [],
     [aoi],
   );
+
+  /**
+   * What the two time fields currently mean, written back in one unambiguous line.
+   *
+   * The native field renders in the browser's locale order, so "08/12" reads as
+   * 12 August in a US-locale Chrome and 8 December elsewhere. Echoing the resolved
+   * UTC instants removes that ambiguity before the case is created.
+   */
+  const windowSummary = useMemo(() => {
+    const base = `Times are interpreted as UTC. Maximum window ${MAX_WINDOW_DAYS} days.`;
+    if (!startTime || !endTime) return base;
+    const from = new Date(localInputToIso(startTime));
+    const to = new Date(localInputToIso(endTime));
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return base;
+    const seconds = (to.getTime() - from.getTime()) / 1000;
+    if (seconds <= 0) return `${base} The end time must come after the start time.`;
+    return `${base} This window is ${formatTimeRange(
+      from.toISOString(),
+      to.toISOString(),
+    )} — ${formatDuration(seconds)} long.`;
+  }, [startTime, endTime]);
 
   const fitTo = useMemo(() => polygonBbox(aoi), [aoi]);
   const serverFieldErrors = createCase.error?.fieldErrors ?? {};
@@ -187,6 +240,24 @@ export default function NewCasePage() {
                   error={serverFieldErrors['description']}
                   hint="Context for whoever reads the evidence report later."
                 />
+                <div className={styles.presetRow}>
+                  <span className={styles.presetLabel}>Quick window</span>
+                  {WINDOW_PRESETS.map((preset) => (
+                    <Button
+                      key={preset.label}
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={submitting}
+                      onClick={() => {
+                        setStartTime(utcInputValue(-preset.hours * HOUR_MS));
+                        setEndTime(utcInputValue());
+                      }}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
                 <Input
                   label="Start time (UTC)"
                   type="datetime-local"
@@ -214,7 +285,7 @@ export default function NewCasePage() {
                       ? (issueFor(issues, 'end_time') ?? serverFieldErrors['end_time'])
                       : null
                   }
-                  hint={`Times are interpreted as UTC. Maximum window ${MAX_WINDOW_DAYS} days.`}
+                  hint={windowSummary}
                 />
               </div>
             </Card>

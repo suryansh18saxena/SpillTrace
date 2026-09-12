@@ -10,7 +10,13 @@ export interface CaseSubNavProps {
   className?: string;
 }
 
+/**
+ * "Walkthrough" sits first on purpose: it is the one section that assumes no
+ * prior knowledge, and someone opening a case for the first time should land on
+ * an explanation before a dashboard of measurements.
+ */
 const SECTIONS = [
+  { segment: 'walkthrough', label: 'Walkthrough' },
   { segment: '', label: 'Map' },
   { segment: 'spill', label: 'Spill details' },
   { segment: 'drift', label: 'Drift & origin' },

@@ -309,10 +309,26 @@
   box-shadow: 0 0 0 3px var(--color-danger-subtle);
 }
 
-/* Date inputs: make the native picker glyph legible on the dark surface. */
+/* Date inputs: the native picker glyph is the only way to open the calendar, and
+   at its default size on a dark surface it is easy to miss entirely. Enlarge it,
+   give it a hit area and light it up on hover so it reads as a button. */
 .control::-webkit-calendar-picker-indicator {
-  filter: invert(var(--map-ctrl-invert, 1)) opacity(0.6);
+  filter: invert(var(--map-ctrl-invert, 1)) opacity(0.75);
   cursor: pointer;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 2px;
+  margin-inline-start: var(--space-2);
+  border-radius: var(--radius-xs);
+  transition:
+    filter var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.control::-webkit-calendar-picker-indicator:hover,
+.control::-webkit-calendar-picker-indicator:focus {
+  filter: invert(var(--map-ctrl-invert, 1)) opacity(1);
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .controlMono {

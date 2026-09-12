@@ -501,3 +501,25 @@
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-3);
 }
+
+/* New case: one-click time windows, because the native datetime field is fiddly
+   and renders in the browser's locale order while the field means UTC. */
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--glass-1-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+}
+
+.presetLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-right: var(--space-1);
+}

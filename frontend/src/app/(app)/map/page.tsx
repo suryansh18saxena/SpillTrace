@@ -10,6 +10,7 @@ import { Notice, NoticeStack } from '@/components/common/Notice';
 import { ProvenanceBadge } from '@/components/common/ProvenanceBadge';
 import { Legend, type LegendItem } from '@/components/map/Legend';
 import { MapView, type MapDataLayer, type MapFeatureSelection } from '@/components/map/MapView';
+import { ScreenGuide } from '@/components/explain/ScreenGuide';
 import { Reveal } from '@/components/motion/Reveal';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -514,6 +515,8 @@ export default function SituationalMapPage() {
               marker or a row to see what that case has produced so far.
             </p>
           </header>
+
+          <ScreenGuide />
 
           <section className={styles.panelSection} aria-label="Filter and legend">
             <div className={styles.chips} role="group" aria-label="Filter cases by status">

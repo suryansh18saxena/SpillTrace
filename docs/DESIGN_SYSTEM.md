@@ -163,3 +163,37 @@ panels; the reference machine is an i3 with integrated graphics.
 **Rules for page work**: mark the first-screen panels you want staggered with `data-enter`; use
 `Card interactive` for link cards; never put the aurora hues on data; keep §1 intact.
 
+## 10. The plain-language layer (2026-09-12)
+
+The product is dense by design, which makes it unreadable to anyone meeting it for the first
+time — including the people who have to demonstrate it. Every explanation lives in
+`frontend/src/lib/explain.ts` and is surfaced in three places.
+
+**One dictionary, three surfaces.** `explain.ts` holds `WHAT_IS_SPILLTRACE`, a `STAGES` list
+covering all thirteen pipeline stages, a `TERMS` map of jargon, and `SCREENS` / `CASE_SCREENS`
+for each route. Nothing is written twice, so two screens cannot describe the same idea two
+different ways.
+
+- **`ScreenGuide`** — the "What am I looking at?" strip. `PageHeader` renders it automatically,
+  so a screen with a title cannot ship without an explanation; the dashboard and both map
+  screens place it by hand. Expanded by default (help should be dismissed, not discovered),
+  one click to collapse to a chip, remembered across screens and reloads.
+- **`ExplainTip`** — a keyboard-reachable `?` beside a jargon word. A real `<button>` with
+  `aria-expanded`, never a `title` attribute; the bubble flips below the marker near the top
+  of the viewport.
+- **`CaseStory`** — the `/cases/[id]/walkthrough` screen: the investigation as eight numbered
+  steps in plain English, each carrying the real figure that step produced, the machine stage
+  names for traceability, and its own "Careful:" limit. It reads the same endpoints as the
+  other case screens, so the narrative can never drift from the measurements. A step that has
+  not run says so in words and shows no figures — an empty step and a step that found nothing
+  are different claims.
+
+**Writing rules** (enforced by `frontend/tests/explain.test.ts`): no jargon inside an
+explanation; state what a thing is *not*; never the banned vocabulary of §1; no invented
+numbers — prose is fixed, every figure comes from the API at render time. The vocabulary test
+matches whole words, because "provenance" legitimately contains "proven".
+
+**Elsewhere**: the pipeline list shows a stage's everyday name with its machine name beside it
+(`Look for oil` · `ml.detect`), and the first-run tour now opens with what the product does
+and closes with the rule that a score never establishes who is responsible.
+

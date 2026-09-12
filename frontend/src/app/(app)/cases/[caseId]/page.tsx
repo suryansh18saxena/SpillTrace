@@ -59,6 +59,7 @@ import {
   truncateId,
 } from '@/lib/format';
 import { polygonBbox } from '@/lib/geo';
+import { ScreenGuide } from '@/components/explain/ScreenGuide';
 import layout from '@/components/layout/layout.module.css';
 import styles from '@/styles/pages.module.css';
 
@@ -549,6 +550,15 @@ export default function InvestigationPage() {
             ) : caseData ? (
               <div className={styles.caseSummary}>
                 <h1 className={styles.caseTitle}>{caseData.title}</h1>
+                <ScreenGuide />
+                <LinkButton
+                  href={`/cases/${caseId}/walkthrough`}
+                  variant="secondary"
+                  size="sm"
+                  fullWidth
+                >
+                  New here? Read this case step by step
+                </LinkButton>
                 <div className={styles.badgeRow}>
                   <CaseStatusBadge status={caseData.status} />
                   <ProvenanceBadge provenance={caseData.data_provenance} />
