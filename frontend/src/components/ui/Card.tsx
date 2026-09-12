@@ -1,6 +1,6 @@
 'use client';
 
-import type { ElementType, ReactNode } from 'react';
+import { createElement, type ElementType, type ReactNode } from 'react';
 import { useSpotlight } from '@/components/motion/useSpotlight';
 import { cx } from '@/lib/cx';
 import styles from './ui.module.css';
@@ -51,32 +51,34 @@ export function Card({
   children,
 }: CardProps) {
   const spot = useSpotlight<HTMLElement>();
-  return (
-    <Tag
-      ref={interactive ? spot : undefined}
-      className={cx(
+  // createElement rather than <Tag>/<TitleTag>: with a bare `ElementType` tag,
+  // React 19.3's types collapse the JSX props to `never`.
+  return createElement(
+    Tag,
+    {
+      ref: interactive ? spot : undefined,
+      className: cx(
         styles.card,
         VARIANT_CLASS[variant],
         interactive && styles.cardInteractive,
         interactive && styles.cardSpot,
         className,
-      )}
-    >
-      {title || actions || description ? (
-        <header className={styles.cardHeader}>
-          <div className={styles.cardHeaderText}>
-            {title ? <TitleTag className={styles.cardTitle}>{title}</TitleTag> : null}
-            {description ? <p className={styles.cardDescription}>{description}</p> : null}
-          </div>
-          {actions ? <div className={styles.cardActions}>{actions}</div> : null}
-        </header>
-      ) : null}
-      {children !== undefined ? (
-        <div className={cx(styles.cardBody, flush && styles.cardBodyFlush, bodyClassName)}>
-          {children}
+      ),
+    },
+    title || actions || description ? (
+      <header className={styles.cardHeader}>
+        <div className={styles.cardHeaderText}>
+          {title ? createElement(TitleTag, { className: styles.cardTitle }, title) : null}
+          {description ? <p className={styles.cardDescription}>{description}</p> : null}
         </div>
-      ) : null}
-      {footer ? <footer className={styles.cardFooter}>{footer}</footer> : null}
-    </Tag>
+        {actions ? <div className={styles.cardActions}>{actions}</div> : null}
+      </header>
+    ) : null,
+    children !== undefined ? (
+      <div className={cx(styles.cardBody, flush && styles.cardBodyFlush, bodyClassName)}>
+        {children}
+      </div>
+    ) : null,
+    footer ? <footer className={styles.cardFooter}>{footer}</footer> : null,
   );
 }

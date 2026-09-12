@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ElementType, type ReactNode } from 'react';
+import { createElement, useRef, type ElementType, type ReactNode } from 'react';
 import { gsap, prefersReducedMotion, SplitText, useGSAP } from '@/lib/motion/gsap';
 
 export interface SplitRevealProps {
@@ -69,9 +69,6 @@ export function SplitReveal({
     { scope: ref },
   );
 
-  return (
-    <Tag ref={ref} id={id} className={className} data-reveal="">
-      {children}
-    </Tag>
-  );
+  // createElement rather than <Tag>: see Reveal.tsx.
+  return createElement(Tag, { ref, id, className, 'data-reveal': '' }, children);
 }

@@ -43,7 +43,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: `${THEME_INIT_SCRIPT}${MOTION_INIT_SCRIPT}` }} />
       </head>
-      <body>
+      {/*
+        `suppressHydrationWarning` here too: browser extensions (ColorZilla's
+        `cz-shortcut-listen`, Grammarly's `data-gr-*`) stamp attributes onto
+        <body> before React hydrates. The flag does not cascade from <html>,
+        and it only covers this element's own attributes, so real mismatches
+        inside the tree are still reported.
+      */}
+      <body suppressHydrationWarning>
         <a className="skip-link" href="#main-content">
           Skip to main content
         </a>

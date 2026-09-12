@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type CSSProperties, type ElementType, type ReactNode } from 'react';
+import { createElement, useRef, type CSSProperties, type ElementType, type ReactNode } from 'react';
 import { gsap, prefersReducedMotion, useGSAP } from '@/lib/motion/gsap';
 
 export interface RevealProps {
@@ -85,9 +85,11 @@ export function Reveal({
     { scope: ref },
   );
 
-  return (
-    <Tag ref={ref} id={id} className={className} style={style} role={role} data-reveal="" {...rest}>
-      {children}
-    </Tag>
+  // createElement rather than <Tag>: with a bare `ElementType` tag, React 19.3's
+  // types collapse the JSX props to `never`.
+  return createElement(
+    Tag,
+    { ref, id, className, style, role, 'data-reveal': '', ...rest },
+    children,
   );
 }

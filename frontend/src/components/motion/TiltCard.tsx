@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, type CSSProperties, type ElementType, type ReactNode } from 'react';
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type ElementType,
+  type ReactNode,
+} from 'react';
 import { hasFinePointer, prefersReducedMotion } from '@/lib/motion/gsap';
 import { cx } from '@/lib/cx';
 import styles from './motion.module.css';
@@ -78,10 +86,11 @@ export function TiltCard({
     };
   }, [flush]);
 
-  return (
-    <Tag ref={ref} id={id} className={cx(styles.tilt, className)} style={style}>
-      {children}
-      {glare ? <span className={styles.glare} aria-hidden="true" /> : null}
-    </Tag>
+  // createElement rather than <Tag>: see Reveal.tsx.
+  return createElement(
+    Tag,
+    { ref, id, className: cx(styles.tilt, className), style },
+    children,
+    glare ? <span className={styles.glare} aria-hidden="true" /> : null,
   );
 }

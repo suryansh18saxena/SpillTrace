@@ -1,4 +1,4 @@
-import type { CSSProperties, ElementType, ReactNode } from 'react';
+import { createElement, type CSSProperties, type ElementType, type ReactNode } from 'react';
 import { cx } from '@/lib/cx';
 import styles from './motion.module.css';
 
@@ -23,12 +23,13 @@ export function TextShimmer({
   duration = 4.5,
   gold = false,
 }: TextShimmerProps) {
-  return (
-    <Tag
-      className={cx(styles.shimmer, gold && styles.shimmerGold, className)}
-      style={{ '--shimmer-duration': `${duration}s` } as CSSProperties}
-    >
-      {children}
-    </Tag>
+  // createElement rather than <Tag>: see Reveal.tsx.
+  return createElement(
+    Tag,
+    {
+      className: cx(styles.shimmer, gold && styles.shimmerGold, className),
+      style: { '--shimmer-duration': `${duration}s` } as CSSProperties,
+    },
+    children,
   );
 }
