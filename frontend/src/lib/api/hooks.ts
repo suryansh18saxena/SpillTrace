@@ -54,6 +54,7 @@ import type {
   Pipeline,
   PipelineStage,
   ProvidersResponse,
+  SceneUpload,
   SpillDetectionDetail,
   StartPipelineRequest,
   StartPipelineResponse,
@@ -251,6 +252,39 @@ export function useCreateCase(): UseMutationResult<Case, ApiError, CreateCaseReq
     mutationFn: (body) => api.createCase(body),
     onSuccess: (created) => {
       queryClient.setQueryData(queryKeys.case(created.id), created);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cases() });
+    },
+  });
+}
+
+export interface UploadSceneVariables {
+  caseId: string;
+  file: File;
+  /** `auto` lets the server read the units off the pixel values. */
+  units: 'auto' | 'db' | 'linear';
+  runPipeline: boolean;
+}
+
+/**
+ * Attach a measurement file to a case and, by default, run the chain on it.
+ *
+ * The case's own queries are invalidated because the upload creates the scene and
+ * the pipeline in one call — the case page must not keep showing "no scene yet".
+ */
+export function useUploadScene(): UseMutationResult<SceneUpload, ApiError, UploadSceneVariables> {
+  const queryClient = useQueryClient();
+  return useMutation<SceneUpload, ApiError, UploadSceneVariables>({
+    mutationFn: ({ caseId, file, units, runPipeline }) => {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('units', units);
+      form.append('run_pipeline', String(runPipeline));
+      return api.uploadScene(caseId, form);
+    },
+    onSuccess: (_result, { caseId }) => {
+      // Every case sub-key (jobs, pipeline, detections) hangs off this one, so a
+      // single prefix invalidation refreshes the whole case view at once.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.case(caseId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.cases() });
     },
   });

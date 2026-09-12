@@ -52,7 +52,14 @@ log = get_logger(__name__)
 AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
 
 #: No frame for this long → tear down and reconnect (AD-21 stall watchdog).
-STALL_TIMEOUT_SECONDS = 90.0
+#: How long a single ``recv`` waits before the loop comes round to report progress.
+#: Silence is NOT an error: AISStream is fed by volunteer receivers and whole
+#: regions are genuinely quiet (measured 2026-09-12 — a 30 s worldwide sample
+#: carried 1,593 position reports, none of them in Indian waters). A dead link is
+#: already detected by the websocket ping/pong configured below, which raises.
+RECV_POLL_SECONDS = 30.0
+#: How often to state out loud that the subscription is up but nothing is arriving.
+QUIET_REPORT_SECONDS = 300.0
 #: Must see SubscriptionConfirmation within this window or the subscription is bad.
 SUBSCRIBE_CONFIRM_TIMEOUT_SECONDS = 5.0
 #: Reconnect backoff ceiling.
@@ -66,11 +73,37 @@ class AISStreamProvider:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
+        # Surfaced by `describe()` so "connected but silent" can be stated plainly
+        # rather than looking identical to "no vessels were there" (CON-007).
+        self._received = 0
+        self._last_message_at: datetime | None = None
+        self._subscribed_at: datetime | None = None
         if not self._settings.aisstream_api_key:
             raise ProviderNotConfiguredError(
                 "AISStream is selected but AISSTREAM_API_KEY is not set.",
                 provider="aisstream",
             )
+
+    def describe(self) -> dict[str, Any]:
+        """What this feed has actually delivered, not merely what it is wired to.
+
+        A configured provider that has received nothing looks identical, from the
+        outside, to a sea with no vessels in it. Those are different claims, so the
+        counts are reported rather than inferred (CON-007).
+        """
+        return {
+            "provider": self.name,
+            "mode": str(DataProvenance.REAL),
+            "subscribed_at": self._subscribed_at.isoformat() if self._subscribed_at else None,
+            "messages_received": self._received,
+            "last_message_at": self._last_message_at.isoformat() if self._last_message_at else None,
+            "note": (
+                "AISStream is fed by volunteer receivers, so coverage is uneven. A "
+                "subscription can be open and healthy while no vessel is heard in the "
+                "configured area; that is reported here as zero messages, never as an "
+                "absence of shipping."
+            ),
+        }
 
     # ------------------------------------------------------------------ historical
     async def historical(
@@ -133,12 +166,36 @@ class AISStreamProvider:
             await self._await_confirmation(ws)
             log.info("aisstream_subscribed", boxes=len(subscription["BoundingBoxes"]))
 
+            loop = asyncio.get_running_loop()
+            self._subscribed_at = utcnow()
+            quiet_since = loop.time()
+            last_report = quiet_since
+
             while True:
                 try:
-                    raw = await asyncio.wait_for(ws.recv(), timeout=STALL_TIMEOUT_SECONDS)
-                except TimeoutError as exc:
-                    raise ConnectionError("no AIS frame for 90 s") from exc
+                    raw = await asyncio.wait_for(ws.recv(), timeout=RECV_POLL_SECONDS)
+                except TimeoutError:
+                    # Nothing arrived in this slice. That is a quiet sea, not a
+                    # broken socket. Tearing the connection down here is what made
+                    # the ingestor reconnect forever over Indian waters, and it
+                    # hid the real finding: the feed simply has no coverage there.
+                    now = loop.time()
+                    if now - last_report >= QUIET_REPORT_SECONDS:
+                        last_report = now
+                        log.info(
+                            "aisstream_quiet",
+                            silent_seconds=round(now - quiet_since),
+                            received_total=self._received,
+                            detail=(
+                                "Subscription is open and confirmed; no vessel has "
+                                "broadcast inside the configured area yet."
+                            ),
+                        )
+                    continue
 
+                self._received += 1
+                self._last_message_at = utcnow()
+                quiet_since = loop.time()
                 parsed = self._parse(raw, message_types)
                 if parsed is not None:
                     yield parsed
@@ -266,4 +323,4 @@ def _positive(value: Any) -> float | None:
     return v if v > 0 else None
 
 
-__all__ = ["AISSTREAM_URL", "STALL_TIMEOUT_SECONDS", "AISStreamProvider"]
+__all__ = ["AISSTREAM_URL", "QUIET_REPORT_SECONDS", "RECV_POLL_SECONDS", "AISStreamProvider"]

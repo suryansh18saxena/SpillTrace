@@ -507,3 +507,77 @@ visibility so evidence layers are never torn down. What changed and what did not
 * MapLibre GL was kept over Leaflet: WebGL rendering, globe projection, and 2,200 lines of working
   overlay code. Attribution follows the active basemap.
 
+### AD-35 — AISStream has no usable coverage in Indian waters (CONFIRMED)
+
+*2026-09-12.* The `ais-ingestor` was reconnecting every 90 s and had collected zero real
+positions. Measured directly against `wss://stream.aisstream.io/v0/stream` with our own key:
+
+| Subscription | Position reports |
+|---|---|
+| Indian EEZ box `[[2,60],[26,98]]` + `FilterMessageTypes` (what we send) | **0 in 40 s** |
+| Same box, no message filter | **0 in 40 s** |
+| Whole world | **1,593 in 30 s** |
+
+Geography of that worldwide sample: Europe 1,147 · North America 247 · elsewhere 199 ·
+**Indian waters 0**. The key is valid, the subscription is confirmed, and the bounding box is
+in AISStream's required latitude-first order. AISStream is fed by volunteer receivers whose
+coverage is overwhelmingly North Atlantic, so **the feed simply cannot supply Indian-water
+AIS**. This is the concrete form of CON-007 and must not be papered over.
+
+**Two code defects this exposed, now fixed:**
+
+* `_session` treated 90 s of silence as `ConnectionError` and reconnected. A quiet sea is a
+  result, not a broken socket — and the websocket's own ping/pong already detects a dead link.
+  The loop now polls in 30 s slices, stays connected, and states the quiet every 5 minutes.
+* Nothing reported what the feed had actually delivered, so "subscribed and silent" looked
+  identical to "no vessels were there". `AISStreamProvider.describe()` now reports
+  `messages_received`, `last_message_at` and `subscribed_at`, and the ingestor logs them every
+  10 minutes.
+
+**Consequence for demonstrations:** a case built from live sources gets real Sentinel-1 imagery
+and a real model result, but **no candidate vessels**, because there is no AIS to correlate. A
+vessel ranking therefore needs either the synthetic AIS provider (labelled SYNTHETIC) or a
+different AIS source. Until then a live case rolls up to MIXED at best — see also AD-34 and the
+`analytical` drift engine.
+
+
+### AD-36 — A supplied scene is ingested through the real path, and its units are read, not assumed
+
+*2026-09-12.* The catalogue path answers "which Sentinel-1 pass covered this area?". Demonstrating
+the trained model needs a different question answered: an analyst already holds a measurement file
+— a research-dataset tile, an archived GRD subset — and wants the ordinary investigation run over
+it. `POST /cases/{case_id}/scenes/upload` does exactly that and nothing more: it leaves the
+database in the state `scene.download` would have left it in (a `satellite_scenes` row marked
+DOWNLOADED, a selected `case_scenes` link, per-band objects and a `bundle.json`), then starts the
+pipeline at `sar.preprocess`. **No stage downstream of the upload knows the scene arrived by
+upload**, which is the point — the real code path is the one being exercised.
+
+**The units trap.** Catalogue products carry σ0 as *linear power*; the Trujillo-Acatitla dataset
+this model was trained on publishes σ0 in **dB**. The two are indistinguishable to a file reader,
+and `sigma0_to_db` rejects anything at or below `MIN_VALID_SIGMA0 = 1e-8`. dB values are negative,
+so converting a dB raster to dB a second time does not merely distort it — it marks **every pixel
+invalid** and the scene returns *empty*. Measured on a 256 × 256 dB raster with a synthetic slick:
+
+| Path | Valid pixels |
+|---|---|
+| dB raster through the linear conversion (before) | **0 of 65,536** |
+| dB raster with `already_db=True` | **65,536 of 65,536** |
+| Linear raster, unchanged behaviour | 4,096 of 4,096 |
+
+An empty scene looks like "no oil was found" — a plausible, quiet, *wrong* answer. So units are
+carried explicitly in `SceneBundle.extra["units"]`, `sar.preprocess` honours them, and the upload
+endpoint decides by inspecting the pixels (any negative value means dB) and **records the reason it
+decided** alongside the scene. The analyst can override it; the reason is shown either way.
+
+**Georeferencing.** A tile with a CRS is reprojected to EPSG:4326 so its detections share one
+coordinate system with every other layer. A tile without one cannot be positioned from its own
+contents; it is stretched onto the case AOI so the chain can run, and the scene notes say so in
+plain words — *the shape of any detection is real, but its latitude and longitude are a placement,
+not a measurement.*
+
+**Provenance is REAL, with a caveat attached.** A Sentinel-1 measurement does not stop being a real
+observation because it arrived by upload, and labelling it SYNTHETIC would be false in the other
+direction. What the platform cannot do is *vouch* for it, so every uploaded scene carries: "SPILLTRACE
+did not retrieve it from a catalogue and cannot verify its origin, acquisition time or processing
+history." The case still rolls up to MIXED whenever its AIS or environmental inputs are synthetic
+(AD-34), which is the honest outcome for a demonstration.

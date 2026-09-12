@@ -47,6 +47,13 @@ export const MAX_WINDOW_DAYS = 30;
 export const REQUEST_TIMEOUT_MS = 30_000;
 
 /**
+ * Uploading a scene is not a form submission: the server decodes, reprojects and
+ * stores tens of megabytes of raster before it answers, so the ordinary request
+ * timeout would abort a request that is working perfectly well.
+ */
+export const SCENE_UPLOAD_TIMEOUT_MS = 300_000;
+
+/**
  * The standing product-level disclaimer (CON-001, CON-003, CON-008, MVP-11).
  *
  * Attribution responses carry their own `disclaimer` from the server and that one

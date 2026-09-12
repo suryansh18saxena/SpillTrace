@@ -59,6 +59,8 @@ DEFAULT_MAX_DIMENSION = 4096
 INFERENCE_BATCH = 64
 #: Band order written by ``sar.preprocess`` and expected by ``ml.detect``.
 PREPROCESSED_BANDS = ("vv_standardised", "vh_standardised", "valid_mask")
+#: ``SceneBundle.extra["units"]`` values that mean "these bands are already in dB".
+DB_UNIT_NAMES = frozenset({"db", "sigma0_db", "sigma0 db", "decibel", "decibels"})
 
 
 @register(JobType.SAR_PREPROCESS)
@@ -108,8 +110,14 @@ async def preprocess_scene(ctx: JobContext) -> dict[str, Any]:
         arrays = {name: array[: smallest[0], : smallest[1]] for name, array in arrays.items()}
         notes.append(f"Bands differed in size ({sorted(shapes)}); all were cropped to {smallest}.")
 
-    await ctx.progress(0.5, "converting to dB and standardising")
-    scene_data = preprocess_bands(arrays, percentiles=percentiles)
+    # A bundle states the units of the bands it carries.  Catalogue products are linear
+    # power; an operator-supplied file may already be in dB, and logging it twice would
+    # silently empty the scene rather than fail (see ``sigma0_to_db``).
+    already_db = str(bundle.extra.get("units") or "").strip().lower() in DB_UNIT_NAMES
+    await ctx.progress(
+        0.5, "standardising" if already_db else "converting to dB and standardising"
+    )
+    scene_data = preprocess_bands(arrays, percentiles=percentiles, already_db=already_db)
     notes.extend(scene_data.notes)
 
     stack = np.concatenate(

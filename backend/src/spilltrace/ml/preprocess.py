@@ -108,14 +108,26 @@ class PreprocessedScene:
 
 
 def sigma0_to_db(
-    sigma0: np.ndarray, *, nodata: float | None = 0.0
+    sigma0: np.ndarray, *, nodata: float | None = 0.0, already_db: bool = False
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert linear σ0 to dB and report which pixels were measurements.
 
     Returns ``(db, valid)``.  Invalid pixels hold ``nan`` in ``db`` so no arithmetic can
     quietly consume them; callers select with ``valid``.
+
+    ``already_db`` is for sources that publish σ0 *in dB* — several public training sets
+    do.  Logging such a raster a second time would not merely distort it: dB values are
+    negative, so ``values > MIN_VALID_SIGMA0`` rejects every pixel and the scene returns
+    empty rather than wrong, which is much harder to notice.
     """
     values = np.asarray(sigma0, dtype=np.float64)
+    if already_db:
+        valid = np.isfinite(values)
+        if nodata is not None:
+            valid &= values != nodata
+        db = np.full(values.shape, np.nan, dtype=np.float32)
+        db[valid] = values[valid].astype(np.float32)
+        return db, valid
     valid = np.isfinite(values) & (values > MIN_VALID_SIGMA0)
     if nodata is not None:
         valid &= values != nodata
@@ -197,6 +209,7 @@ def preprocess_bands(
     percentiles: tuple[float, float] = DEFAULT_CLIP_PERCENTILES,
     nodata: float | None = 0.0,
     channel_order: Sequence[str] = CHANNEL_ORDER,
+    already_db: bool = False,
 ) -> PreprocessedScene:
     """Turn ``{"VV": σ0, "VH": σ0}`` into a standardised ``(C, H, W)`` stack.
 
@@ -213,6 +226,10 @@ def preprocess_bands(
         raise ValueError(f"All bands must share one shape; got {sorted(shapes)}.")
 
     notes: list[str] = []
+    if already_db:
+        notes.append(
+            "Bands were supplied as σ0 already in dB; the linear-to-dB conversion was skipped."
+        )
     substitute = next((name for name in channel_order if name in available), next(iter(available)))
 
     channels: list[np.ndarray] = []
@@ -224,7 +241,9 @@ def preprocess_bands(
         source_name = wanted if wanted in available else substitute
         if source_name != wanted:
             notes.append(f"{wanted} unavailable; {source_name} duplicated")
-        db, valid = sigma0_to_db(available[source_name], nodata=nodata)
+        db, valid = sigma0_to_db(
+            available[source_name], nodata=nodata, already_db=already_db
+        )
         standardised, stats = clip_and_standardise(
             db, valid, polarization=wanted, percentiles=percentiles
         )

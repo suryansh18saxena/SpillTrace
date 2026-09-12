@@ -38,6 +38,8 @@ log = get_logger(__name__)
 DEFAULT_BBOXES: tuple[tuple[float, float, float, float], ...] = ((60.0, 2.0, 98.0, 26.0),)
 BATCH_SIZE = 200
 FLUSH_SECONDS = 5.0
+#: How often the ingestor states what the feed has delivered so far.
+HEARTBEAT_SECONDS = 600.0
 
 
 def parse_bboxes(raw: str | None) -> list[tuple[float, float, float, float]]:
@@ -101,6 +103,17 @@ async def _stream_forever(settings: Settings, stop: asyncio.Event) -> None:
         last_flush = asyncio.get_running_loop().time()
         log.info("ais_ingestor_flushed", messages=len(pending), total=total)
 
+    async def heartbeat() -> None:
+        """Say what the feed has actually delivered, whether or not that is anything.
+
+        Without this a silent feed and a healthy one look the same from outside the
+        process, which is precisely the silent gap the product forbids.
+        """
+        while not stop.is_set():
+            await asyncio.sleep(HEARTBEAT_SECONDS)
+            log.info("ais_ingestor_heartbeat", **provider.describe())
+
+    beat = asyncio.create_task(heartbeat())
     stream = provider.stream(bboxes=bboxes)
     try:
         async for message in stream:
@@ -111,6 +124,9 @@ async def _stream_forever(settings: Settings, stop: asyncio.Event) -> None:
             if len(batch) >= BATCH_SIZE or now - last_flush >= FLUSH_SECONDS:
                 await flush()
     finally:
+        beat.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await beat
         await flush()
 
 

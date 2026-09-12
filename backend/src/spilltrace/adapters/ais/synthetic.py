@@ -214,8 +214,12 @@ class SyntheticAISProvider:
                     message_type="PositionReport",
                     source="SYNTHETIC",
                     sog_knots=round(max(0.0, speed_knots + float(rng.normal(0.0, 0.25))), 2),
-                    cog_deg=round(float((course + rng.normal(0.0, 1.6)) % 360.0), 1),
-                    heading_deg=round(float((course + rng.normal(0.0, 1.1)) % 360.0), 0),
+                    # The wrap must come *after* the rounding, not before it: 359.97
+                    # survives `% 360.0` and then rounds straight to 360.0, which the
+                    # `cog_deg < 360` check constraint rejects and which is not a
+                    # bearing anyone can steer.
+                    cog_deg=round(float(course + rng.normal(0.0, 1.6)), 1) % 360.0,
+                    heading_deg=round(float(course + rng.normal(0.0, 1.1)), 0) % 360.0,
                     nav_status=0,
                     name=display_name,
                     data_provenance=DataProvenance.SYNTHETIC,

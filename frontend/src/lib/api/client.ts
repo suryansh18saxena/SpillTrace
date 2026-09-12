@@ -11,7 +11,12 @@
  *     quote it and it can be found in the structured logs (NFR-004).
  */
 
-import { API_BASE_URL, API_PREFIX, REQUEST_TIMEOUT_MS } from '@/lib/config';
+import {
+  API_BASE_URL,
+  API_PREFIX,
+  REQUEST_TIMEOUT_MS,
+  SCENE_UPLOAD_TIMEOUT_MS,
+} from '@/lib/config';
 import { clearSession, getAccessToken, refreshSession } from '@/lib/auth/session';
 import type {
   ApiErrorBody,
@@ -40,6 +45,7 @@ import type {
   ParticleCollection,
   Pipeline,
   ProvidersResponse,
+  SceneUpload,
   SpillDetectionDetail,
   StartPipelineRequest,
   StartPipelineResponse,
@@ -361,8 +367,11 @@ async function requestOnce(path: string, options: ApiRequestOptions): Promise<Re
   }, timeoutMs);
   const combined = combineSignals([signal, timeoutController.signal]);
 
+  // A multipart body carries its own boundary, which only the runtime can generate.
+  // Setting Content-Type by hand would drop it and the server would reject the form.
+  const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers: Record<string, string> = { Accept: 'application/json', ...options.headers };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
   if (auth) {
     const token = getAccessToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -376,7 +385,7 @@ async function requestOnce(path: string, options: ApiRequestOptions): Promise<Re
       // server can rotate it. No third-party origin is ever contacted (AD-5).
       credentials: 'include',
       signal: combined.signal,
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: multipart ? (body as FormData) : JSON.stringify(body) }),
     });
   } catch (error) {
     if (timeoutController.signal.aborted) {
@@ -537,6 +546,18 @@ export const api = {
   updateCase: (caseId: string, body: UpdateCaseRequest) =>
     apiRequest<Case>(`/cases/${encodeURIComponent(caseId)}`, { method: 'PATCH', body }),
   archiveCase: (caseId: string) => post<Case>(`/cases/${encodeURIComponent(caseId)}/archive`),
+  /**
+   * Attach a measurement file the analyst already holds and run the chain on it.
+   *
+   * The timeout is generous because the server decodes, reprojects and stores the
+   * raster inside the request; a scene is tens of megabytes, not a form field.
+   */
+  uploadScene: (caseId: string, form: FormData) =>
+    apiRequest<SceneUpload>(`/cases/${encodeURIComponent(caseId)}/scenes/upload`, {
+      method: 'POST',
+      body: form,
+      timeoutMs: SCENE_UPLOAD_TIMEOUT_MS,
+    }),
 
   // pipeline & jobs
   startPipeline: (caseId: string, body: StartPipelineRequest) =>

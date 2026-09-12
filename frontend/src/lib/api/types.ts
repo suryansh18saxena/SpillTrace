@@ -763,3 +763,27 @@ export interface DemoCaseResponse {
 // ------------------------------------------------------------------ geometry
 
 export type { FeatureCollection, LineString, MultiPolygon, Point, Polygon };
+
+/**
+ * What the server read out of an uploaded measurement file.
+ *
+ * `units` and `georeferenced` are reported rather than assumed: a dB raster read
+ * as linear power yields an empty scene, and a tile with no CRS is placed on the
+ * case AOI instead of being positioned from its own contents. Both facts are shown
+ * to the analyst, because both change what the resulting detection means.
+ */
+export interface SceneUpload {
+  scene_id: string;
+  product_id: string;
+  polarizations: string[];
+  units: 'db' | 'linear';
+  units_reason: string;
+  georeferenced: boolean;
+  source_crs: string | null;
+  bbox: number[];
+  pixels: number[];
+  acquired_at: string;
+  size_bytes: number;
+  notes: string[];
+  pipeline_id: string | null;
+}

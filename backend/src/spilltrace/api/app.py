@@ -21,6 +21,7 @@ from spilltrace.api.routers import (
     layers,
     probability,
     system,
+    uploads,
 )
 from spilltrace.config import Settings, get_settings
 from spilltrace.db.session import dispose_engine
@@ -96,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         investigation,
         events,
         system,
+        uploads,
     ):
         app.include_router(module.router)
 

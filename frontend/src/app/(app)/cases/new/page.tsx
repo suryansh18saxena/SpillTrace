@@ -12,11 +12,12 @@ import { Card } from '@/components/ui/Card';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Input } from '@/components/ui/Input';
 import { LinkButton } from '@/components/ui/LinkButton';
+import { Select, type SelectOption } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
-import { useCreateCase } from '@/lib/api/hooks';
+import { useCreateCase, useUploadScene } from '@/lib/api/hooks';
 import { MAX_AOI_KM2, MAX_WINDOW_DAYS } from '@/lib/config';
-import { formatDuration, formatTimeRange } from '@/lib/format';
+import { formatBytes, formatDuration, formatTimeRange } from '@/lib/format';
 import {
   localInputToIso,
   polygonBbox,
@@ -70,10 +71,28 @@ const WINDOW_PRESETS: ReadonlyArray<{ label: string; hours: number }> = [
   { label: 'Last 30 days', hours: 24 * 30 },
 ];
 
+type UnitsChoice = 'auto' | 'db' | 'linear';
+
+/**
+ * How the pixel values should be read.
+ *
+ * This is the one question a supplied file cannot answer for itself. σ0 in dB and
+ * σ0 in linear power look identical to a file reader, and reading dB as linear
+ * rejects every pixel — the scene comes back empty rather than wrong. Detection
+ * from the values is right in every case we have seen, so it leads; the overrides
+ * exist for a file whose values are scaled into a range that hides the difference.
+ */
+const UNIT_OPTIONS: readonly SelectOption[] = [
+  { value: 'auto', label: 'Detect from the pixel values (recommended)' },
+  { value: 'db', label: 'σ0 already in dB' },
+  { value: 'linear', label: 'σ0 in linear power' },
+];
+
 export default function NewCasePage() {
   const router = useRouter();
   const { toast } = useToast();
   const createCase = useCreateCase();
+  const uploadScene = useUploadScene();
 
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [title, setTitle] = useState('');
@@ -81,6 +100,8 @@ export default function NewCasePage() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [aoi, setAoi] = useState<Polygon | null>(null);
+  const [sceneFile, setSceneFile] = useState<File | null>(null);
+  const [units, setUnits] = useState<UnitsChoice>('auto');
   const [submitted, setSubmitted] = useState(false);
 
   const handleMapReady = useCallback((instance: MapLibreMap | null) => setMap(instance), []);
@@ -134,6 +155,20 @@ export default function NewCasePage() {
     )} — ${formatDuration(seconds)} long.`;
   }, [startTime, endTime]);
 
+  /**
+   * What attaching a file changes, said before the analyst commits to it.
+   *
+   * Without one the case is created empty and waits for a catalogue search; with
+   * one the chain starts immediately on the supplied pixels. That is a large
+   * difference in what the next screen will be doing, so it is stated here.
+   */
+  const fileHint = useMemo(() => {
+    if (!sceneFile) {
+      return 'Single- or dual-band GeoTIFF of σ0 (band 1 is read as VV, band 2 as VH). Leave empty to create the case and search the catalogue instead.';
+    }
+    return `${sceneFile.name} — ${formatBytes(sceneFile.size)}. Creating the case will attach this file and start detection on it straight away.`;
+  }, [sceneFile]);
+
   const fitTo = useMemo(() => polygonBbox(aoi), [aoi]);
   const serverFieldErrors = createCase.error?.fieldErrors ?? {};
   const showIssues = submitted;
@@ -153,12 +188,44 @@ export default function NewCasePage() {
       },
       {
         onSuccess: (created) => {
-          toast({
-            tone: 'success',
-            title: 'Case created',
-            description: `“${created.title}” is ready. Run the pipeline to begin the investigation.`,
-          });
-          router.push(`/cases/${created.id}`);
+          if (!sceneFile) {
+            toast({
+              tone: 'success',
+              title: 'Case created',
+              description: `“${created.title}” is ready. Run the pipeline to begin the investigation.`,
+            });
+            router.push(`/cases/${created.id}`);
+            return;
+          }
+          uploadScene.mutate(
+            { caseId: created.id, file: sceneFile, units, runPipeline: true },
+            {
+              onSuccess: (scene) => {
+                toast({
+                  tone: 'success',
+                  title: 'Image attached — detection running',
+                  description: `${scene.polarizations.join(' and ')} read as σ0 in ${
+                    scene.units === 'db' ? 'dB' : 'linear power'
+                  }. ${
+                    scene.georeferenced
+                      ? 'It was placed from its own map reference.'
+                      : 'It carries no map reference, so it was placed on the area of interest.'
+                  }`,
+                });
+                router.push(`/cases/${created.id}`);
+              },
+              onError: (error) => {
+                // The case itself was saved; only the image failed. Send the analyst
+                // to it rather than stranding them on a form whose work already exists.
+                toast({
+                  tone: 'error',
+                  title: 'Case created, but the image was not attached',
+                  description: `${error.message} You can try the upload again from the case.`,
+                });
+                router.push(`/cases/${created.id}`);
+              },
+            },
+          );
         },
         onError: (error) => {
           toast({ tone: 'error', title: 'Could not create the case', description: error.message });
@@ -167,7 +234,7 @@ export default function NewCasePage() {
     );
   };
 
-  const submitting = createCase.isPending;
+  const submitting = createCase.isPending || uploadScene.isPending;
 
   return (
     <main className={layout.content} id="main-content">
@@ -290,6 +357,30 @@ export default function NewCasePage() {
               </div>
             </Card>
 
+            <Card
+              title="Satellite image"
+              description="Optional. Attach a SAR measurement file you already hold and the investigation runs on it directly — no catalogue search, no download."
+            >
+              <div className={styles.formStack}>
+                <Input
+                  label="Measurement file"
+                  type="file"
+                  accept=".tif,.tiff,image/tiff"
+                  disabled={submitting}
+                  onChange={(event) => setSceneFile(event.target.files?.[0] ?? null)}
+                  hint={fileHint}
+                />
+                <Select
+                  label="Pixel units"
+                  options={UNIT_OPTIONS}
+                  value={units}
+                  disabled={submitting || !sceneFile}
+                  onChange={(event) => setUnits(event.target.value as UnitsChoice)}
+                  hint="Catalogue products carry σ0 as linear power; several public training sets publish it in dB. The two are indistinguishable to a file reader, and reading dB as linear finds nothing at all, so leave this on detect unless you know the file disagrees."
+                />
+              </div>
+            </Card>
+
             <div className={styles.formActions}>
               <LinkButton href="/cases" variant="ghost" size="md">
                 Cancel
@@ -299,10 +390,10 @@ export default function NewCasePage() {
                 variant="primary"
                 size="md"
                 loading={submitting}
-                loadingLabel="Creating case"
+                loadingLabel={uploadScene.isPending ? 'Attaching image' : 'Creating case'}
                 disabled={submitting || (submitted && issues.length > 0)}
               >
-                Create case
+                {sceneFile ? 'Create case and detect' : 'Create case'}
               </Button>
             </div>
 
