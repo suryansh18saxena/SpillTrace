@@ -27,6 +27,10 @@ fi
 if [ -n "${GHCR_TOKEN:-}" ]; then
   echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER:-github}" --password-stdin >/dev/null
 fi
+# The job token expires when the workflow job ends. A login left behind in
+# ~/.docker/config.json then makes every later pull fail with "denied", even for
+# public packages, so the credential never outlives this script.
+trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 
 printf 'IMAGE_TAG=%s\nSPILLTRACE_GIT_SHA=%s\n' "${IMAGE_TAG}" "${GIT_SHA}" > .image.env
 compose() { docker compose --env-file .env --env-file .image.env -f compose.prod.yml "$@"; }

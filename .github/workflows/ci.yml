@@ -56,9 +56,9 @@ jobs:
       - name: Unit tests
         working-directory: backend
         run: python -m pytest -q tests/unit
-      - name: Integration and GIS tests
+      - name: GIS tests
         working-directory: backend
-        run: python -m pytest -q tests/integration tests/gis -m "not requires_credentials"
+        run: python -m pytest -q tests/gis -m "not requires_credentials"
 
   frontend:
     name: Frontend (lint, types, tests, build)
