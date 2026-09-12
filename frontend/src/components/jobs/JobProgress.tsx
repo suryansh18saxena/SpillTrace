@@ -41,7 +41,15 @@ export function JobProgress({ job, onCancel, onRetry, busy = false, className }:
   const label = humanizeIdentifier(job.job_type);
 
   return (
-    <article className={cx(styles.job, isFailed && styles.jobFailed, className)}>
+    <article
+      className={cx(
+        styles.job,
+        isFailed && styles.jobFailed,
+        isActive && styles.jobActive,
+        job.status === 'COMPLETED' && styles.jobDone,
+        className,
+      )}
+    >
       <div className={styles.jobHead}>
         <span className={styles.jobType}>{job.job_type}</span>
         <JobStatusBadge status={job.status} />

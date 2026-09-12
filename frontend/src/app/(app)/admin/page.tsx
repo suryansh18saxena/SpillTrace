@@ -44,13 +44,29 @@ const COMPONENT_TONE: Record<string, BadgeTone> = {
  * recorded" case is handled before this is ever called, because a model that was
  * never measured must not be rendered as though it scored zero (A-06).
  */
-function formatMetric(value: number | string | null): string {
-  if (value === null) return EMPTY_VALUE;
+function formatRequires(requires: string | string[] | null | undefined): string {
+  const names = Array.isArray(requires) ? requires : requires ? requires.split(/[\s,/]+/) : [];
+  const cleaned = names.map((name) => name.trim()).filter(Boolean);
+  return cleaned.length > 0 ? cleaned.join(', ') : 'Nothing external';
+}
+
+function formatMetric(value: unknown): string {
+  if (value === null || value === undefined) return EMPTY_VALUE;
   if (typeof value === 'string') return value;
-  // Anything in [0,1] is almost certainly a rate; show it as a percentage.
-  if (value >= 0 && value <= 1)
-    return `${formatNumber(value * 100, { maximumFractionDigits: 1 })}%`;
-  return formatNumber(value, { maximumFractionDigits: 3 });
+  if (typeof value === 'number') {
+    // Anything in [0,1] is almost certainly a rate; show it as a percentage.
+    if (value >= 0 && value <= 1)
+      return `${formatNumber(value * 100, { maximumFractionDigits: 1 })}%`;
+    return formatNumber(value, { maximumFractionDigits: 3 });
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, inner]) => `${humanizeIdentifier(key)} ${formatMetric(inner)}`)
+      .join(', ');
+  }
+  // Nested groups (an operating point, a threshold sweep) do not fit in one
+  // cell; ML Ops renders them properly. Never print "[object Object]".
+  return 'recorded — see ML Ops';
 }
 
 const componentColumns: Column<SystemComponent>[] = [
@@ -105,7 +121,7 @@ const providerColumns: Column<SystemProvider>[] = [
     header: 'Requires',
     mono: true,
     render: (row) =>
-      row.requires && row.requires.length > 0 ? row.requires.join(', ') : 'Nothing external',
+      formatRequires(row.requires),
   },
 ];
 

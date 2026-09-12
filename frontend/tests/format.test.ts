@@ -80,6 +80,11 @@ describe('durations', () => {
     expect(formatDuration(Number.NaN)).toBe(EMPTY_VALUE);
   });
 
+  it('shows sub-second runtimes in milliseconds rather than as "0s"', () => {
+    expect(formatDuration(0.42)).toBe('420 ms');
+    expect(formatDuration(0.0004)).toBe('1 ms');
+  });
+
   it('computes elapsed time between two timestamps', () => {
     expect(formatElapsed('2026-08-01T10:00:00Z', '2026-08-01T10:02:30Z')).toBe('2m 30s');
     expect(formatElapsed('2026-08-01T10:00:00Z', null)).toBe(EMPTY_VALUE);
@@ -146,6 +151,9 @@ describe('identifiers and strings', () => {
   it('humanizes job types and enum values', () => {
     expect(humanizeIdentifier('drift.hindcast')).toBe('Drift hindcast');
     expect(humanizeIdentifier('FALSE_POSITIVE')).toBe('False positive');
+    expect(humanizeIdentifier('ais.ingest')).toBe('AIS ingest');
+    expect(humanizeIdentifier('sar')).toBe('SAR');
+    expect(humanizeIdentifier('mean_iou')).toBe('Mean IOU');
   });
 
   it('formats ordinals for candidate rank', () => {

@@ -1,0 +1,53 @@
+# Colab free-tier GPU (T4 / L4).  Identical model geometry to cpu_baseline.yaml — only
+# the things a GPU actually changes are different (AD-11: "a GPU run changes this file
+# and nothing else").  Comparing a run under this config against a run under
+# cpu_baseline.yaml is therefore a fair comparison of hardware, not of architecture.
+name: unet-colab-gpu
+seed: 42
+device: auto           # resolves to cuda on Colab; falls back to cpu without complaint
+output_dir: runs
+threshold: 0.5
+
+model:
+  name: unet
+  encoder: simple
+  in_channels: 2       # VV, VH
+  out_channels: 1
+  base_filters: 16     # unchanged from the CPU baseline, deliberately
+  depth: 4
+  norm_groups: 8       # GroupNorm stays: it is batch-size independent, so the same
+                       # weights behave identically whether trained here or on CPU
+  dropout: 0.0
+
+data:
+  root: /content/data/trujillo   # Colab local disk, not Drive — Drive I/O is the
+                                 # bottleneck for a dataloader reading thousands of tiles
+  synthetic: false
+  patch_size: 128
+  stride: 96
+  val_fraction: 0.15
+  test_fraction: 0.15
+  empty_tile_fraction: 0.35
+  augment: true
+  max_images: null
+  expected_band_order: [VV, VH]
+  expected_dtype: null
+
+optim:
+  lr: 0.0003
+  weight_decay: 0.0001
+  batch_size: 32       # 2x128x128 tiles are tiny; a T4's 16 GB is nowhere near the limit
+  epochs: 40           # more than the CPU budget allowed, because here it is affordable
+  warmup_epochs: 3
+  early_stop_patience: 10
+  scheduler: cosine
+  num_workers: 2       # Colab gives 2 vCPUs; more would just contend
+  threads: 2
+  amp: true            # the one genuinely GPU-specific switch
+  grad_clip: 1.0
+
+loss:
+  bce_weight: 0.5
+  dice_weight: 0.5
+  pos_weight_max: 10.0
+  dice_epsilon: 1.0

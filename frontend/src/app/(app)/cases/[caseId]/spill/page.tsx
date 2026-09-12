@@ -7,10 +7,9 @@ import { MetaList, Readout, ReadoutGrid, Unmeasured } from '@/components/common/
 import { Notice, NoticeStack } from '@/components/common/Notice';
 import { ProvenanceBadge } from '@/components/common/ProvenanceBadge';
 import { RunManifestCard } from '@/components/common/RunManifestCard';
+import { ModelOutputReveal } from '@/components/detection/ModelOutputReveal';
 import { RulesTable, ruleOutcome } from '@/components/detection/RulesTable';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { MapView, type MapDataLayer } from '@/components/map/MapView';
-import { styleForLayer } from '@/components/map/layerStyles';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -23,8 +22,10 @@ import {
   useDetections,
   useEnvironment,
   useLayerData,
+  useLayerManifest,
   useVerification,
 } from '@/lib/api/hooks';
+import { API_BASE_URL } from '@/lib/config';
 import {
   EMPTY_VALUE,
   formatAreaKm2,
@@ -71,37 +72,22 @@ export default function SpillDetailsPage() {
   const environmentQuery = useEnvironment(caseId);
   const spillLayer = useLayerData(caseId, 'spill', Boolean(caseId));
   const footprintLayer = useLayerData(caseId, 'scene_footprint', Boolean(caseId));
+  const manifestQuery = useLayerManifest(caseId);
 
   const detection = detectionQuery.data;
   const verification = verificationQuery.data;
   const environment = environmentQuery.data?.items[0];
 
-  const mapLayers = useMemo<MapDataLayer[]>(() => {
-    const footprintStyle = styleForLayer({ id: 'scene_footprint', type: 'geojson' });
-    const spillStyle = styleForLayer({ id: 'spill', type: 'geojson' });
-    return [
-      {
-        id: 'scene_footprint',
-        kind: footprintStyle.kind,
-        colorVar: footprintStyle.colorVar,
-        colorFallback: footprintStyle.fallback,
-        visible: true,
-        opacity: 0.6,
-        data: footprintLayer.data ?? null,
-      },
-      {
-        id: 'spill',
-        kind: spillStyle.kind,
-        colorVar: spillStyle.colorVar,
-        colorFallback: spillStyle.fallback,
-        visible: true,
-        opacity: 1,
-        lineWidth: 2,
-        data: spillLayer.data ?? null,
-      },
-    ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spillLayer.dataUpdatedAt, footprintLayer.dataUpdatedAt]);
+  // The probability field is a tile layer in the case's own manifest; its URL
+  // is API-relative and must be resolved against the API origin.
+  const probabilityLayer = manifestQuery.data?.layers.find(
+    (layer) => layer.id === 'oil_probability' && layer.available !== false,
+  );
+  const probabilityTiles = probabilityLayer
+    ? probabilityLayer.url.startsWith('http')
+      ? probabilityLayer.url
+      : `${API_BASE_URL}${probabilityLayer.url}`
+    : null;
 
   const centroid = detection?.centroid?.coordinates;
   const fitTo = useMemo(() => {
@@ -356,11 +342,17 @@ export default function SpillDetailsPage() {
             </div>
 
             <div className={styles.detailStack}>
-              <Card title="Where" flush>
+              <Card
+                title="Where — and what the model saw"
+                description="Toggle between the scene the detector was given and the slick outline it produced."
+                flush
+              >
                 <div className={styles.detailMap}>
-                  <MapView
-                    label="Detected slick and the SAR scene footprint"
-                    layers={mapLayers}
+                  <ModelOutputReveal
+                    label="Detected slick, oil-probability field and the SAR scene footprint"
+                    footprint={footprintLayer.data ?? null}
+                    spill={spillLayer.data ?? null}
+                    probabilityTiles={probabilityTiles}
                     fitTo={fitTo}
                     badges={<ProvenanceBadge provenance={detection.data_provenance} />}
                   />

@@ -55,71 +55,64 @@ export function Table<T>({
   const showError = Boolean(error) && !loading;
   const showEmpty = !loading && !error && rows.length === 0;
 
+  // The error and empty states render *below* the table, outside its
+  // horizontal scroll container: inside a wide table they would be laid out
+  // across its full width and clipped on a phone.
   return (
-    <div className={cx(styles.tableWrap, className)}>
-      <table className={styles.table} aria-busy={loading || undefined}>
-        <caption className={captionVisible ? undefined : 'sr-only'}>{caption}</caption>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                style={column.width ? { width: column.width } : undefined}
-                className={cx(column.numeric && styles.cellNumeric)}
-              >
-                <span className={column.headerHidden ? 'sr-only' : undefined}>{column.header}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {showError ? (
+    <div className={className}>
+      <div className={styles.tableWrap}>
+        <table className={styles.table} aria-busy={loading || undefined}>
+          <caption className={captionVisible ? undefined : 'sr-only'}>{caption}</caption>
+          <thead>
             <tr>
-              <td colSpan={columns.length} className={styles.tableStateCell}>
-                {error}
-              </td>
+              {columns.map((column) => (
+                <th
+                  key={column.key}
+                  scope="col"
+                  style={column.width ? { width: column.width } : undefined}
+                  className={cx(column.numeric && styles.cellNumeric)}
+                >
+                  <span className={column.headerHidden ? 'sr-only' : undefined}>
+                    {column.header}
+                  </span>
+                </th>
+              ))}
             </tr>
-          ) : null}
+          </thead>
+          <tbody>
+            {showSkeleton
+              ? Array.from({ length: skeletonRows }, (_, rowIndex) => (
+                  <tr key={`skeleton-${rowIndex}`}>
+                    {columns.map((column) => (
+                      <td key={column.key}>
+                        <Skeleton height="0.75rem" width={column.numeric ? '3rem' : '70%'} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              : null}
 
-          {showEmpty && empty ? (
-            <tr>
-              <td colSpan={columns.length} className={styles.tableStateCell}>
-                {empty}
-              </td>
-            </tr>
-          ) : null}
-
-          {showSkeleton
-            ? Array.from({ length: skeletonRows }, (_, rowIndex) => (
-                <tr key={`skeleton-${rowIndex}`}>
+            {!showError &&
+              rows.map((row, index) => (
+                <tr key={getRowKey(row, index)}>
                   {columns.map((column) => (
-                    <td key={column.key}>
-                      <Skeleton height="0.75rem" width={column.numeric ? '3rem' : '70%'} />
+                    <td
+                      key={column.key}
+                      className={cx(
+                        column.numeric && styles.cellNumeric,
+                        column.mono && styles.cellMono,
+                      )}
+                    >
+                      {column.render(row, index)}
                     </td>
                   ))}
                 </tr>
-              ))
-            : null}
-
-          {!showError &&
-            rows.map((row, index) => (
-              <tr key={getRowKey(row, index)}>
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={cx(
-                      column.numeric && styles.cellNumeric,
-                      column.mono && styles.cellMono,
-                    )}
-                  >
-                    {column.render(row, index)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-        </tbody>
-      </table>
+              ))}
+          </tbody>
+        </table>
+      </div>
+      {showError ? <div className={styles.tableState}>{error}</div> : null}
+      {showEmpty && empty ? <div className={styles.tableState}>{empty}</div> : null}
     </div>
   );
 }

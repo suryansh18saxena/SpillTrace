@@ -19,6 +19,7 @@ from spilltrace.api.routers import (
     investigation,
     jobs,
     layers,
+    probability,
     system,
 )
 from spilltrace.config import Settings, get_settings
@@ -84,7 +85,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     register_exception_handlers(app)
-    for module in (health, auth, cases, jobs, demo, layers, investigation, events, system):
+    for module in (
+        health,
+        auth,
+        cases,
+        jobs,
+        demo,
+        layers,
+        probability,
+        investigation,
+        events,
+        system,
+    ):
         app.include_router(module.router)
 
     return app

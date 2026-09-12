@@ -1,0 +1,31 @@
+.mark {
+  flex: none;
+  overflow: visible;
+}
+
+.sweep {
+  transform-origin: 16px 16px;
+  animation: sweep 4.2s linear infinite;
+}
+
+@keyframes sweep {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+/* The contact lights up as the sweep passes over it, then fades. */
+.blip {
+  animation: blip 4.2s linear infinite;
+}
+
+@keyframes blip {
+  0%,
+  6% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0.25;
+  }
+}

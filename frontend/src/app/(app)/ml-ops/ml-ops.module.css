@@ -1,0 +1,619 @@
+/* ML Ops — the model registry, pipeline throughput and the model lifecycle. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+/* --------------------------------------------------------------- sections */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+}
+
+.sectionHeadText {
+  min-width: 0;
+  max-width: 72ch;
+}
+
+.sectionTitle {
+  margin-top: var(--space-2);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.sectionLead {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+}
+
+.sectionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.metaPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-subtle) 70%, transparent);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.metaPill strong {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: proportional-nums;
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------ model cards */
+
+/* auto-fit: a short registry fills the row instead of leaving an empty track. */
+.models {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-4);
+}
+
+.model {
+  --spot-x: 50%;
+  --spot-y: 0%;
+  --spot-o: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-surface-raised) 96%, transparent),
+    color-mix(in srgb, var(--color-surface) 92%, transparent)
+  );
+  box-shadow: var(--highlight-top), var(--shadow-sm);
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    border-color var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+
+/* Instrument-glass hairline along the top edge. */
+.model::before {
+  content: '';
+  position: absolute;
+  inset-inline: 12%;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 45%, transparent),
+    transparent
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* The light that follows the cursor (see useSpotlight). */
+.model::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    22rem circle at var(--spot-x) var(--spot-y),
+    color-mix(in srgb, var(--color-accent) 12%, transparent),
+    transparent 60%
+  );
+  opacity: var(--spot-o);
+  transition: opacity var(--duration-slow) var(--ease-out);
+  pointer-events: none;
+}
+
+.model:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+
+.modelActive {
+  border-color: var(--color-accent-border);
+  box-shadow: var(--highlight-top), var(--glow-accent);
+}
+
+.modelHead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.modelGlyph {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: radial-gradient(
+    circle at 50% 30%,
+    var(--color-surface-overlay),
+    var(--color-bg-subtle)
+  );
+  color: var(--color-text-muted);
+}
+
+.modelActive .modelGlyph {
+  border-color: var(--color-accent-border);
+  color: var(--color-accent-text);
+}
+
+.modelName {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.modelVersion {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.modelVersion span {
+  color: var(--color-text-secondary);
+}
+
+.modelTask {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.evaluation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.evaluationLabel {
+  font-size: 0.65rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.metricGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.metricGroupLabel {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.metricChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.metricChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-bg-subtle) 70%, transparent);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.metricChip strong {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.metricChip em {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.metricNote {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * "Never evaluated" is drawn as absent information — a hatched, dashed box
+ * with words in it — so it can never be mistaken for an empty bar or a zero.
+ */
+.unmeasuredBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border-strong);
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 7px,
+    color-mix(in srgb, var(--color-border) 45%, transparent) 7px 8px
+  );
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+
+.unmeasuredIcon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------ throughput */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 68rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Two independent stacks, so a short card never leaves a hole beside a tall one. */
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.componentList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.componentRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.componentRow:first-child {
+  padding-top: 0;
+}
+
+.componentRow:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.componentName {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.componentDetail {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.componentLatency {
+  min-width: 4.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.source {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-bg-subtle) 60%, transparent);
+}
+
+.sourceIcon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+}
+
+.sourceName {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.sourceImpl {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ------------------------------------------------------------- lifecycle */
+
+.lifecycle {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  background:
+    radial-gradient(
+      36rem 16rem at 100% 0%,
+      color-mix(in srgb, var(--color-accent) 9%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
+  box-shadow: var(--highlight-top), var(--shadow-sm);
+  overflow: hidden;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Connector to the next step: dashed while the work happens offline, solid
+   once it reaches something this API records. */
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 1.25rem;
+  left: 3.1rem;
+  right: calc(0.6rem - var(--space-5));
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.stepRecorded:not(:last-child)::after {
+  border-top: 1px solid var(--color-accent-border);
+}
+
+.stepNode {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 1px dashed var(--color-border-strong);
+  background: radial-gradient(
+    circle at 50% 30%,
+    var(--color-surface-overlay),
+    var(--color-bg-subtle)
+  );
+  color: var(--color-text-muted);
+}
+
+.stepRecorded .stepNode {
+  border-style: solid;
+  border-color: var(--color-accent-border);
+  background: radial-gradient(
+    circle at 50% 30%,
+    color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-overlay)),
+    var(--color-bg-subtle)
+  );
+  color: var(--color-accent-text);
+  box-shadow: 0 0 18px -6px var(--color-accent);
+}
+
+.stepText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.stepIndex {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  color: var(--color-text-muted);
+}
+
+.stepTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.stepBody {
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.stepBody code,
+.offlineNote code {
+  padding: 0 0.25rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-hover);
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  color: var(--color-text);
+}
+
+.stepWhere {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  border: 1px dashed var(--color-border-strong);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.stepRecorded .stepWhere {
+  border-style: solid;
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-text);
+}
+
+@media (max-width: 72rem) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .step {
+    flex-direction: row;
+    gap: var(--space-4);
+  }
+
+  .stepNode {
+    flex: none;
+  }
+
+  .stepIndex {
+    margin-top: 0;
+  }
+
+  .stepWhere {
+    margin-top: var(--space-1);
+  }
+
+  .step:not(:last-child)::after {
+    top: 3.1rem;
+    bottom: calc(0.6rem - var(--space-6));
+    left: 1.25rem;
+    right: auto;
+    border-top: 0;
+    border-left: 1px dashed var(--color-border-strong);
+  }
+
+  .stepRecorded:not(:last-child)::after {
+    border-top: 0;
+    border-left: 1px solid var(--color-accent-border);
+  }
+}
+
+.offlineNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-bg-subtle) 60%, transparent);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.offlineNote strong {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.offlineIcon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-accent-text);
+}
+
+.foot {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}

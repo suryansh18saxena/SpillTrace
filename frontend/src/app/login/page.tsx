@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { Spinner } from '@/components/ui/Spinner';
-import styles from '@/styles/pages.module.css';
+import { RadarMark } from '@/components/brand/RadarMark';
 import { LoginForm } from './LoginForm';
+import styles from './login.module.css';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -20,8 +20,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className={styles.authScreen}>
-          <Spinner size="md" label="Loading sign-in" />
+        <div className={styles.loading} role="status" aria-label="Loading sign-in">
+          <RadarMark size={48} />
         </div>
       }
     >

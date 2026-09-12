@@ -29,9 +29,15 @@ export function readStoredTheme(): Theme | null {
   }
 }
 
+/**
+ * The theme used when nothing is stored.
+ *
+ * Always dark (v3): the console is designed dark-first and the demo runs on
+ * machines whose OS preference we do not control. The OS preference is still
+ * honoured as the *initial toggle direction* nowhere — light is one click away.
+ */
 export function systemTheme(): Theme {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'dark';
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  return 'dark';
 }
 
 export function applyTheme(theme: Theme): void {
@@ -52,4 +58,15 @@ export function storeTheme(theme: Theme): void {
  * Runs synchronously in <head> before first paint so the page never flashes the
  * wrong theme. Kept to one statement and no dependencies for exactly that reason.
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');if(t!=='light'&&t!=='dark'){t='dark';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
+
+/**
+ * Stamps `data-motion="ok"` on <html> before first paint when the visitor has
+ * not asked for reduced motion.
+ *
+ * Scroll-reveal content is pre-hidden in CSS *only* under this attribute, so
+ * the page is fully visible without scripting, under reduced motion, and if
+ * the script never runs. A data attribute rather than a class because React
+ * owns `className` on <html> and would strip a foreign class on re-render.
+ */
+export const MOTION_INIT_SCRIPT = `(function(){try{if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){document.documentElement.dataset.motion='ok';}}catch(e){}})();`;

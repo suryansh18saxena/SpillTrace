@@ -152,6 +152,9 @@ Columns: `ID | Owner | Description | Deps | Primary files | Acceptance & tests |
 | P6-009 | A2 | Frontend job progress UI + SSE subscription | P3-011 | `frontend/src/components/jobs/` | QUEUED→RUNNING→COMPLETED/FAILED visible | COMPLETED |
 | P6-010 | QA | Worker integration tests (real redis + postgres) | P6-008 | `backend/tests/integration/` | Pass | TODO |
 
+| P6-011 | A1 | Worker restart safety: re-enqueue DB-QUEUED jobs missing from Redis at startup (a restart during a retry backoff stranded them) | P6-008 | `backend/src/spilltrace/worker/runtime.py`, `worker/queue.py` | `worker_reconciled_queued count=6` observed; ST-2026-0001 settled COMPLETED | COMPLETED |
+| P6-012 | A4 | `ais.ingest` with a live-only provider (AISStream) hands off to positions already stored for the window instead of failing the pipeline | AIS-011 | `backend/src/spilltrace/worker/handlers/ais.py` | Completes as no-data with the stated reason; later stages use stored positions | COMPLETED |
+
 ## Phase 7 — Sentinel-1 catalogue search
 
 | ID | Owner | Description | Deps | Primary files | Acceptance & tests | Status |
@@ -235,6 +238,8 @@ Columns: `ID | Owner | Description | Deps | Primary files | Acceptance & tests |
 | P12-009 | A2 | Probability raster tiles on the map | P12-004 | `frontend/src/components/map/` | Layer renders | COMPLETED |
 | P12-010 | QA | Tests: no detection, whole-scene detection, missing model, invalid mask | P12-006 | `backend/tests/` | Graceful | IN_PROGRESS |
 
+| P12-010 | A3 | Integrate the Colab-trained ResNet-34 smp U-Net checkpoint (`ml/runs/colab-resnet34-run3`) | P12-001 | `backend/src/spilltrace/ml/resnet_unet.py`, `ml/inference.py`, `worker/handlers/sar.py`, `ml/scripts/register_model.py` | Bit-exact vs smp 0.5.0 (max |Δ| 0.0); registered as spilltrace-unet 0.2.0 (active, validation metrics labelled); ml.detect on ST-2026-0001: 9 tiles @256/192, max p 0.99, 1014 km², MIXED; 7 unit tests (AD-33) | COMPLETED |
+
 ## Phase 13 — Look-alike verification
 
 | ID | Owner | Description | Deps | Primary files | Acceptance & tests | Status |
@@ -297,7 +302,7 @@ Columns: `ID | Owner | Description | Deps | Primary files | Acceptance & tests |
 | AIS-008 | A4 | Coordinate + sentinel-value validation (lat 91 / lon 181 / COG 360 / HDG 511) | AIS-005 | same | Unit tests | COMPLETED |
 | AIS-009 | A4 | Position persistence with upsert + vessel upsert | AIS-008 | `…/db/repositories/ais.py` | Integration test | COMPLETED |
 | AIS-010 | A4 | Duplicate detection (DB unique + in-memory window) | AIS-009 | same | Duplicate test | COMPLETED |
-| AIS-011 | A4 | Ingestor service lifecycle (long-lived, health, metrics) | AIS-003 | `…/worker/ais_ingestor.py` | Runs as its own container | IN_PROGRESS |
+| AIS-011 | A4 | Ingestor service lifecycle (long-lived, health, metrics) | AIS-003 | `…/worker/ais_ingestor.py` | Runs as its own container; idles with a stated reason when unconfigured, streams AISStream into `vessels`/`ais_positions` in batches when configured (verified: subscribed 2026-09-12) | COMPLETED |
 | AIS-012 | A4 | Synthetic AIS provider implementing the same port | AIS-001 | `…/adapters/ais/synthetic.py` | Deterministic | COMPLETED |
 | AIS-013 | QA | Unit tests for parser/validators | AIS-008 | `backend/tests/unit/` | Pass | COMPLETED |
 | AIS-014 | QA | Integration tests (fake WS server → PostGIS) | AIS-011 | `backend/tests/integration/` | Pass | IN_PROGRESS |
@@ -391,3 +396,27 @@ Columns: `ID | Owner | Description | Deps | Primary files | Acceptance & tests |
 | P22-008 | DEV | Deployment documentation | P22-007 | `docs/DEPLOYMENT.md` | Complete | IN_PROGRESS |
 | P22-009 | A0 | Traceability matrix completion | P22-004 | `docs/TRACEABILITY.md` | Every requirement mapped | COMPLETED |
 | P22-010 | A0 | Final audit | P22-009 | `docs/FINAL_AUDIT.md` | Every requirement: implementation + test + evidence | COMPLETED |
+
+## Phase 23 — UI redesign ("Abyssal radar")
+
+Conventions: `docs/DESIGN_SYSTEM.md`. Every figure on the new screens is computed from API data;
+cross-case screens aggregate case-scoped endpoints via `useCaseUniverse` (`lib/api/aggregate.ts`).
+
+| ID | Owner | Description | Deps | Primary files | Acceptance & tests | Status |
+|---|---|---|---|---|---|---|
+| P23-001 | A2 | Design tokens v2, self-hosted Geist / Instrument Serif, validated confidence ramp | — | `frontend/src/styles/tokens.css`, `app/layout.tsx` | Ordinal ramp passes the palette validator in both themes | COMPLETED |
+| P23-002 | A2 | Motion system: GSAP (ScrollTrigger, SplitText, DrawSVG, MotionPath) + Lenis, reduced-motion safe | P23-001 | `frontend/src/lib/motion/`, `components/motion/` | Final state rendered under `prefers-reduced-motion`; no flash of hidden content | COMPLETED |
+| P23-003 | A2 | UI kit, map overlays and shared page styles restyled (same class API) | P23-001 | `components/ui/ui.module.css`, `styles/pages.module.css`, `components/map/map.module.css` | Existing vitest suite green | COMPLETED |
+| P23-004 | A2 | App shell: grouped nav registry, collapsible rail, command palette, notification centre, user menu, onboarding tour, route transitions | P23-003 | `components/layout/`, `components/shell/`, `app/(app)/template.tsx` | Tour, palette and notifications verified in headless Chrome | COMPLETED |
+| P23-005 | A2 | Public landing: parallax hero, scrollytelling chain, pinned 13-stage rail; figures quoted from the live kutch-01 demo | P23-002 | `app/page.tsx`, `app/_landing/` | Claims re-verified against the running system on 2026-09-11 | COMPLETED |
+| P23-006 | A2 | Sign-in redesign | P23-004 | `app/login/` | Redirect safety unchanged | COMPLETED |
+| P23-007 | A2 | New screens: dashboard, situational map, analytics, vessel registry, activity feed, compare, ML Ops, help, transparency (public) | P23-004 | `app/(app)/{dashboard,map,analytics,vessels,activity,compare,ml-ops,help}/`, `app/transparency/` | Unknown values render as "—"; truncation stated | COMPLETED |
+| P23-008 | A0 | Ranking evidence: band meter honouring server caps, contribution breakdown, rule-based plain-language reading, cross-case history, discrimination note verbatim | P23-007 | `app/(app)/cases/[caseId]/ranking/`, `components/attribution/PlainLanguageSummary.tsx` | Banned-vocabulary test still green | COMPLETED |
+| P23-009 | A2 | Spill page before/after reveal of the oil-probability field | P23-003 | `components/detection/ModelOutputReveal.tsx` | Uses the manifest's `oil_probability` tiles | COMPLETED |
+| P23-010 | A2 | Hindi / English language toggle | P23-007 | — | Server notices must stay verbatim; needs reviewed legal wording in Hindi | TODO |
+| P23-011 | A1 | Backend: case ST-2026-0001 labelled REAL while its detections/vessels are SYNTHETIC | — | `backend/src/spilltrace/db/provenance.py`, `worker/pipeline.py` | Roll-up on pipeline settlement + backfill CLI; ST-2026-0001 now MIXED (AD-34) | COMPLETED |
+| P23-012 | A1 | Backend: serve the `oil_probability` raster tiles the layer manifest already advertises | P13-009 | `backend/src/spilltrace/api/routers/probability.py` | Web-Mercator tiles from the latest PROBABILITY_RASTER artifact, confidence ramp, transparent outside footprint, 401 unauthenticated — verified with curl on ST-2026-0001 | COMPLETED |
+| P23-013 | A2 | Imagery basemaps (Esri World Imagery / Ocean, CARTO Dark/Light, Offline) + globe projection + basemap switcher | P23-007 | `frontend/src/lib/map/basemaps.ts`, `components/map/{BasemapControl,useMap,MapView}.tsx`, `next.config.ts` | Tiles load under the CSP (593×200 in headless Chrome), attribution follows the basemap, Offline fallback on tile failure, preference persisted (AD-5 amendment) | COMPLETED |
+| P23-014 | A2 | Admin page crash: `providers[].requires` is a string, frontend expected a list | — | `app/(app)/admin/page.tsx`, `lib/api/types.ts` | `/admin` renders; nested metric groups render as text | COMPLETED |
+| P23-015 | A1 | `make demo` called a missing module | — | `backend/src/spilltrace/demo/create.py`, `Makefile` | Creates the kutch-01 case and queues the DEMO pipeline from the CLI | COMPLETED |
+| P23-016 | A2 | UI v3 "glass & instrument": glass/neumorphic tokens, aurora backdrop, kit + shell restyle, new motion primitives, landing/login polish, dark default | P23-004 | `styles/tokens.css`, `components/ui`, `components/shell`, `components/motion`, `app/(app)/template.tsx` | vitest 154/154, tsc + eslint clean; screenshots reviewed in both themes; reduced-motion falls back to static CSS | COMPLETED |

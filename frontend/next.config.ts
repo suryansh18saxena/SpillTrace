@@ -1,6 +1,13 @@
 import type { NextConfig } from 'next';
 
 /**
+ * Basemap tile providers, mirrored from `src/lib/map/basemaps.ts` (next.config
+ * cannot import from src). Esri World Imagery / Ocean and CARTO reference maps.
+ */
+const BASEMAP_HOSTS =
+  'https://server.arcgisonline.com https://services.arcgisonline.com https://*.basemaps.cartocdn.com';
+
+/**
  * The API origin the browser talks to. It is our own FastAPI service — never a
  * third party. No third-party credential of any kind is ever exposed to the
  * client bundle (CON-004 / AD-5): the basemap is self-hosted (public/map-style.json)
@@ -32,14 +39,18 @@ function contentSecurityPolicy(isDev: boolean): string {
     "frame-ancestors 'none'",
     "form-action 'self'",
     "font-src 'self' data:",
-    "img-src 'self' data: blob:",
+    // Public basemap tile hosts (lib/map/basemaps.ts). MapLibre fetches raster
+    // tiles with fetch() as ArrayBuffers, so the hosts appear in both img-src
+    // and connect-src. No credential is ever sent to them; the Offline basemap
+    // makes no external request at all.
+    `img-src 'self' data: blob: ${BASEMAP_HOSTS}`,
     "style-src 'self' 'unsafe-inline'",
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
     // The evidence report is rendered in a sandboxed `srcdoc` iframe.
     "frame-src 'self' blob:",
     `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-    `connect-src 'self' ${apiBaseUrl}${isDev ? ' ws: http://localhost:*' : ''}`,
+    `connect-src 'self' ${apiBaseUrl} ${BASEMAP_HOSTS}${isDev ? ' ws: http://localhost:*' : ''}`,
   ].join('; ');
 }
 
@@ -55,20 +66,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  /**
-   * There is no marketing surface: the bare origin goes straight to the case
-   * list, and the authenticated shell bounces to `/login` if there is no
-   * session.
-   *
-   * Done here rather than with a `redirect()` in an `app/page.tsx`: the App
-   * Router serves that as a 200 plus a `<meta http-equiv="refresh">`, which
-   * costs a visible second on the one URL people type by hand. A config
-   * redirect is a real 307 with a `Location` header.
-   */
-  async redirects() {
-    return [{ source: '/', destination: '/cases', permanent: false }];
-  },
-
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production';
     return [

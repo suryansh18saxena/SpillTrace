@@ -1,89 +1,122 @@
 /*
- * SPILLTRACE design tokens (P4-002).
+ * SPILLTRACE design tokens — "Abyssal radar" (v2).
  *
  * Dark-first: the default `:root` block IS the dark theme, because analysts work
  * in low-light operations rooms and the map is the hero on every investigation
  * screen. `[data-theme='light']` overrides for daylight/printing.
  *
- * Colour is used semantically and sparingly:
- *   - neutral greys carry all chrome (surfaces, borders, text)
- *   - ONE accent (blue) marks every interactive affordance
- *   - a deliberate 3-step sequential scale (grey -> amber -> bright amber)
- *     carries confidence / probability. It is a lightness ramp as well as a hue
- *     ramp so it survives greyscale and colour-vision deficiency, and it
- *     deliberately never uses red: a high score is an investigative lead, not an
+ * The visual language is deep water lit by instruments: near-black navy
+ * surfaces, hairline borders that catch a little light along their top edge,
+ * and colour that appears only where there is data or an affordance.
+ *
+ * Colour is still used semantically and sparingly:
+ *   - blue-tinted neutrals carry all chrome (surfaces, borders, text)
+ *   - ONE accent (electric blue, with a cyan companion used only inside
+ *     gradients and glows) marks every interactive affordance
+ *   - a deliberate 3-step, one-hue ordinal scale (warm grey -> amber -> gold)
+ *     carries confidence / probability. It is validated as an ordinal ramp on
+ *     both surfaces (monotone lightness, visible step gaps, single hue) so it
+ *     survives greyscale and colour-vision deficiency, and it deliberately
+ *     never uses red: a high score is an investigative lead, not an
  *     accusation (CON-001, CON-003).
  *   - red appears ONLY for system failure (a failed job), never for a score.
+ *   - REAL vs SYNTHETIC provenance hues are NOT separable under deuteranopia,
+ *     so provenance is always carried by a text label and never charted by
+ *     colour alone.
  */
 
 :root {
   color-scheme: dark;
 
   /* ---------------------------------------------------------------- neutrals */
-  --color-bg: #0b0f14;
-  --color-bg-subtle: #0f151c;
-  --color-surface: #131a23;
-  --color-surface-raised: #18212c;
-  --color-surface-overlay: #1d2733;
-  --color-surface-hover: #212c3a;
-  --color-surface-active: #27354598;
+  --color-bg: #03060c;
+  --color-bg-subtle: #060b14;
+  --color-surface: #0a111c;
+  --color-surface-raised: #0d1623;
+  --color-surface-overlay: #111b2b;
+  --color-surface-hover: #142136;
+  --color-surface-active: #1a2a44;
 
-  --color-border: #26313d;
-  --color-border-strong: #37465a;
-  --color-border-subtle: #1c242e;
+  --color-border: #16233a;
+  --color-border-strong: #243651;
+  --color-border-subtle: #0f1a2a;
 
-  --color-text: #e6edf5;
-  --color-text-secondary: #a5b3c4;
-  --color-text-muted: #74849a;
-  --color-text-inverse: #0b0f14;
+  --color-text: #eaf0f9;
+  --color-text-secondary: #a3b2c8;
+  --color-text-muted: #6d7f9a;
+  --color-text-inverse: #03060c;
 
   /* ------------------------------------------------------------------ accent */
-  --color-accent: #4f8ff7;
-  --color-accent-hover: #6ba3f9;
-  --color-accent-active: #3d7ce4;
-  --color-accent-subtle: #4f8ff722;
-  --color-accent-border: #4f8ff755;
-  --color-accent-text: #9dc4fd;
-  --color-on-accent: #06101f;
+  --color-accent: #4f8dff;
+  --color-accent-hover: #70a4ff;
+  --color-accent-active: #3b78ee;
+  --color-accent-2: #3dd5ff;
+  --color-accent-subtle: #4f8dff1c;
+  --color-accent-border: #4f8dff4a;
+  --color-accent-text: #a2c5ff;
+  --color-on-accent: #020c1d;
+
+  --gradient-accent: linear-gradient(120deg, #4f8dff 0%, #5aa8ff 45%, #3dd5ff 100%);
+  --gradient-headline: linear-gradient(100deg, #f3f7ff 0%, #a2c5ff 38%, #f2c24c 78%, #f3f7ff 100%);
+  --glow-accent:
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent),
+    0 12px 32px -12px color-mix(in srgb, var(--color-accent) 85%, transparent);
 
   /* ------------------------------------------------- status (system, not guilt) */
-  --color-success: #3fb950;
-  --color-success-subtle: #3fb95020;
-  --color-warning: #d29922;
-  --color-warning-subtle: #d2992220;
-  --color-danger: #f85149;
-  --color-danger-subtle: #f8514920;
-  --color-info: #4f8ff7;
-  --color-info-subtle: #4f8ff720;
-  --color-neutral: #74849a;
-  --color-neutral-subtle: #74849a1f;
+  --color-success: #3fcf6e;
+  --color-success-subtle: #3fcf6e1c;
+  --color-warning: #e0a526;
+  --color-warning-subtle: #e0a5261c;
+  --color-danger: #ff5a52;
+  --color-danger-subtle: #ff5a521c;
+  --color-info: #4f8dff;
+  --color-info-subtle: #4f8dff1c;
+  --color-neutral: #6d7f9a;
+  --color-neutral-subtle: #6d7f9a1f;
 
   /* ------------------------------------------- confidence / probability ramp */
-  /* 3 steps only. Never red. Never labelled "responsible" or "guilty". */
-  --confidence-1: #7a8798; /* LOW    — weak investigative signal */
-  --confidence-2: #c08b34; /* MEDIUM — moderate investigative signal */
-  --confidence-3: #f0c04a; /* HIGH   — strong investigative signal */
-  --confidence-1-subtle: #7a879826;
-  --confidence-2-subtle: #c08b3426;
-  --confidence-3-subtle: #f0c04a26;
-  --confidence-1-text: #b4bfcd;
-  --confidence-2-text: #d9a648;
-  --confidence-3-text: #f5cf6d;
+  /* 3 steps, one hue, validated ordinal. Never red. Never "responsible". */
+  --confidence-1: #726c61; /* LOW    — weak investigative signal */
+  --confidence-2: #bf8a33; /* MEDIUM — moderate investigative signal */
+  --confidence-3: #f2c24c; /* HIGH   — strong investigative signal */
+  --confidence-1-subtle: #726c6129;
+  --confidence-2-subtle: #bf8a3326;
+  --confidence-3-subtle: #f2c24c24;
+  --confidence-1-text: #bdb6a9;
+  --confidence-2-text: #deaa52;
+  --confidence-3-text: #f7d275;
 
   /* --------------------------------------------------------- data provenance */
-  --provenance-real: #4f8ff7;
-  --provenance-synthetic: #a371f7;
-  --provenance-mixed: #d29922;
+  --provenance-real: #4f8dff;
+  --provenance-synthetic: #a77bff;
+  --provenance-mixed: #e0a526;
 
   /* --------------------------------------------------------------------- map */
-  --map-ocean: #0a1622;
-  --map-ocean-deep: #071019;
-  --map-graticule: #1b2c3d;
-  --map-aoi: #4f8ff7;
-  --map-spill: #f0c04a;
-  --map-origin: #a371f7;
+  --map-ocean: #07121f;
+  --map-ocean-deep: #040a13;
+  --map-graticule: #13243a;
+  --map-aoi: #4f8dff;
+  --map-spill: #f2c24c;
+  --map-origin: #a77bff;
   --map-vessel: #5fd3c4;
   --map-track: #7a8798;
+  --map-sky: #0b1a2e;
+  --map-horizon: #2b5c9e;
+
+  /* ------------------------------------------------------------------ charts */
+  /* One series = one hue (the accent), validated against the card surface. */
+  --chart-series-1: #4f8dff;
+  --chart-series-1-soft: #4f8dff33;
+  --chart-grid: #142033;
+  --chart-axis: #243651;
+  --chart-label: #6d7f9a;
+
+  /* ------------------------------------------------------------------ glass */
+  --glass-bg: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--color-surface-raised) 86%, transparent);
+  --glass-border: color-mix(in srgb, #9fc0ff 11%, transparent);
+  --glass-blur: 14px;
+  --highlight-top: inset 0 1px 0 0 rgb(255 255 255 / 0.045);
 
   /* ------------------------------------------------------------------ spacing */
   --space-0: 0;
@@ -97,21 +130,27 @@
   --space-10: 2.5rem;
   --space-12: 3rem;
   --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
 
   /* -------------------------------------------------------------------- radii */
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
   --radius-full: 999px;
 
   /* --------------------------------------------------------------- typography */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    'Noto Sans', sans-serif;
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
   --font-mono:
-    ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Menlo', 'Consolas', 'Liberation Mono',
-    monospace;
+    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Menlo', 'Consolas',
+    'Liberation Mono', monospace;
+  /* Editorial accent only — headlines on public surfaces. Never on a number. */
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
 
   --text-2xs: 0.6875rem; /* 11px — table meta, badges */
   --text-xs: 0.75rem; /* 12px — dense table cells */
@@ -121,8 +160,10 @@
   --text-lg: 1.125rem;
   --text-xl: 1.375rem;
   --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-4xl: 3rem;
 
-  --leading-tight: 1.25;
+  --leading-tight: 1.2;
   --leading-normal: 1.5;
   --leading-relaxed: 1.65;
 
@@ -131,81 +172,142 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  --tracking-wide: 0.06em;
+  --tracking-tight: -0.022em;
+  --tracking-wide: 0.07em;
 
   /* ----------------------------------------------------------------- elevation */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45);
-  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 10px 28px -12px rgb(0 0 0 / 0.75), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 28px 70px -20px rgb(0 0 0 / 0.85), 0 6px 18px -6px rgb(0 0 0 / 0.5);
 
   /* -------------------------------------------------------------------- misc */
   --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent);
   --focus-ring-inset: inset 0 0 0 2px var(--color-accent);
-  --duration-fast: 90ms;
-  --duration-normal: 160ms;
+
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+  --duration-slow: 420ms;
   --easing: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
   --z-sticky: 100;
   --z-sidebar: 200;
+  --z-popover: 800;
   --z-overlay: 900;
   --z-dialog: 1000;
   --z-toast: 1100;
+  --z-tour: 1200;
 
-  --layout-sidebar-width: 15rem;
-  --layout-header-height: 3.25rem;
+  --layout-sidebar-width: 16.25rem;
+  --layout-sidebar-collapsed: 4.5rem;
+  --layout-header-height: 3.75rem;
   --layout-max-width: 110rem;
-}
+  /* ------------------------------------------------------------ v3: glass */
+  /* Three tiers of frosted surface: 1 = ambient panel, 2 = card, 3 = popover. */
+  --glass-1-bg: color-mix(in srgb, var(--color-surface) 48%, transparent);
+  --glass-2-bg: color-mix(in srgb, var(--color-surface-raised) 66%, transparent);
+  --glass-3-bg: color-mix(in srgb, var(--color-surface-overlay) 84%, transparent);
+  --glass-1-border: color-mix(in srgb, #9fc0ff 8%, transparent);
+  --glass-2-border: color-mix(in srgb, #9fc0ff 13%, transparent);
+  --glass-3-border: color-mix(in srgb, #9fc0ff 18%, transparent);
+  --glass-blur-sm: 10px;
+  --glass-blur-md: 18px;
+  --glass-blur-lg: 28px;
+  --glass-saturate: 150%;
+  --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.07);
+  --glass-edge: inset 0 0 0 1px rgb(255 255 255 / 0.025);
+  --glass-shadow: 0 24px 60px -28px rgb(0 0 0 / 0.85), 0 4px 14px -6px rgb(0 0 0 / 0.5);
+
+  /* ------------------------------------------------------- v3: neumorphism */
+  /* Soft dual shadows for controls that should feel machined, not printed. */
+  --neo-bg: color-mix(in srgb, var(--color-surface-raised) 80%, var(--color-bg));
+  --neo-light: rgb(255 255 255 / 0.055);
+  --neo-dark: rgb(0 0 0 / 0.55);
+  --neo-raised: -4px -4px 10px var(--neo-light), 5px 6px 14px var(--neo-dark);
+  --neo-raised-sm: -2px -2px 6px var(--neo-light), 3px 3px 8px var(--neo-dark);
+  --neo-inset: inset 3px 3px 8px var(--neo-dark), inset -2px -2px 6px var(--neo-light);
+  --neo-inset-sm: inset 2px 2px 5px var(--neo-dark), inset -1px -1px 3px var(--neo-light);
+
+  /* ------------------------------------------------------------- v3: aurora */
+  /* Ambient light only — never on a control. Violet is also the SYNTHETIC hue,
+     so it stays far in the background at low opacity. */
+  --aurora-1: #4f8dff;
+  --aurora-2: #3dd5ff;
+  --aurora-3: #6c5cff;
+  --aurora-4: #f2c24c;
+  --aurora-opacity: 0.16;
+  --noise-opacity: 0.045;
+
+  /* ---------------------------------------------------------- v3: elevation */
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.5), var(--glass-highlight);
+  --elev-2: 0 8px 24px -12px rgb(0 0 0 / 0.7), var(--glass-highlight);
+  --elev-3: 0 18px 48px -18px rgb(0 0 0 / 0.8), var(--glass-highlight);
+  --elev-4: 0 32px 80px -24px rgb(0 0 0 / 0.9), var(--glass-highlight);
+  --ease-spring-soft: cubic-bezier(0.22, 1.2, 0.36, 1);
+  --ease-elastic: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --duration-slower: 700ms;
+  --blur-sm: 6px;
+  --blur-md: 14px;
+  --blur-lg: 28px;}
+
 
 [data-theme='light'] {
   color-scheme: light;
 
-  --color-bg: #f4f6f9;
-  --color-bg-subtle: #eaeef3;
+  --color-bg: #f2f5fa;
+  --color-bg-subtle: #e9eef6;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
   --color-surface-overlay: #ffffff;
-  --color-surface-hover: #eef2f7;
-  --color-surface-active: #e2e8f0;
+  --color-surface-hover: #eef3fa;
+  --color-surface-active: #e1e9f5;
 
-  --color-border: #d3dbe4;
-  --color-border-strong: #b3bfcd;
-  --color-border-subtle: #e4e9ef;
+  --color-border: #d9e1ec;
+  --color-border-strong: #b9c6d8;
+  --color-border-subtle: #e6ecf4;
 
-  --color-text: #11181f;
-  --color-text-secondary: #445263;
-  --color-text-muted: #637284;
+  --color-text: #0b1422;
+  --color-text-secondary: #3e4d63;
+  --color-text-muted: #5b6a80;
   --color-text-inverse: #ffffff;
 
-  --color-accent: #1b62d4;
-  --color-accent-hover: #1755bd;
-  --color-accent-active: #12489f;
-  --color-accent-subtle: #1b62d414;
-  --color-accent-border: #1b62d444;
-  --color-accent-text: #12489f;
+  --color-accent: #175ce0;
+  --color-accent-hover: #124fc4;
+  --color-accent-active: #0f43a6;
+  --color-accent-2: #0a8fd0;
+  --color-accent-subtle: #175ce012;
+  --color-accent-border: #175ce040;
+  --color-accent-text: #0f48b3;
   --color-on-accent: #ffffff;
 
-  --color-success: #1a7f37;
-  --color-success-subtle: #1a7f3718;
+  --gradient-accent: linear-gradient(120deg, #175ce0 0%, #1a6fe4 45%, #0a8fd0 100%);
+  --gradient-headline: linear-gradient(100deg, #0b1422 0%, #175ce0 40%, #8a6100 80%, #0b1422 100%);
+
+  --color-success: #13803a;
+  --color-success-subtle: #13803a16;
   --color-warning: #8a6100;
-  --color-warning-subtle: #8a610018;
-  --color-danger: #b42318;
-  --color-danger-subtle: #b4231818;
-  --color-info: #1b62d4;
-  --color-info-subtle: #1b62d414;
-  --color-neutral: #637284;
-  --color-neutral-subtle: #6372841a;
+  --color-warning-subtle: #8a610016;
+  --color-danger: #c42318;
+  --color-danger-subtle: #c4231814;
+  --color-info: #175ce0;
+  --color-info-subtle: #175ce012;
+  --color-neutral: #5b6a80;
+  --color-neutral-subtle: #5b6a801a;
 
-  --confidence-1: #7a8798;
+  --confidence-1: #9a9282;
   --confidence-2: #8a6100;
-  --confidence-3: #6b4a00;
-  --confidence-1-subtle: #7a879820;
+  --confidence-3: #5c3f00;
+  --confidence-1-subtle: #9a928222;
   --confidence-2-subtle: #8a610018;
-  --confidence-3-subtle: #6b4a0018;
-  --confidence-1-text: #55616f;
+  --confidence-3-subtle: #5c3f0016;
+  --confidence-1-text: #595348;
   --confidence-2-text: #7a5600;
-  --confidence-3-text: #5a3e00;
+  --confidence-3-text: #4e3500;
 
-  --provenance-real: #1b62d4;
+  --provenance-real: #175ce0;
   --provenance-synthetic: #6b31c4;
   --provenance-mixed: #8a6100;
 
@@ -213,8 +315,44 @@
   --map-ocean-deep: #bcccdd;
   --map-graticule: #a9bccd;
   --map-track: #55616f;
+  --map-sky: #bcd6f2;
+  --map-horizon: #7fb0e6;
+
+  --chart-series-1: #175ce0;
+  --chart-series-1-soft: #175ce026;
+  --chart-grid: #e6ecf4;
+  --chart-axis: #b9c6d8;
+  --chart-label: #5b6a80;
+
+  --glass-bg: color-mix(in srgb, #ffffff 76%, transparent);
+  --glass-bg-strong: color-mix(in srgb, #ffffff 90%, transparent);
+  --glass-border: color-mix(in srgb, #0b1422 9%, transparent);
+  --highlight-top: inset 0 1px 0 0 rgb(255 255 255 / 0.9);
 
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.08);
-  --shadow-md: 0 4px 12px rgb(16 24 40 / 0.1);
-  --shadow-lg: 0 16px 40px rgb(16 24 40 / 0.14);
+  --shadow-md: 0 10px 28px -14px rgb(16 24 40 / 0.22), 0 2px 6px -2px rgb(16 24 40 / 0.08);
+  --shadow-lg: 0 28px 70px -24px rgb(16 24 40 / 0.3), 0 6px 18px -6px rgb(16 24 40 / 0.1);
+
+  --glass-1-bg: color-mix(in srgb, #ffffff 52%, transparent);
+  --glass-2-bg: color-mix(in srgb, #ffffff 70%, transparent);
+  --glass-3-bg: color-mix(in srgb, #ffffff 88%, transparent);
+  --glass-1-border: color-mix(in srgb, #0b1422 7%, transparent);
+  --glass-2-border: color-mix(in srgb, #0b1422 10%, transparent);
+  --glass-3-border: color-mix(in srgb, #0b1422 13%, transparent);
+  --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.95);
+  --glass-edge: inset 0 0 0 1px rgb(255 255 255 / 0.6);
+  --glass-shadow: 0 24px 60px -30px rgb(16 24 40 / 0.35), 0 4px 14px -8px rgb(16 24 40 / 0.12);
+  --neo-bg: color-mix(in srgb, #ffffff 70%, var(--color-bg));
+  --neo-light: rgb(255 255 255 / 0.9);
+  --neo-dark: rgb(16 24 40 / 0.14);
+  --aurora-1: #175ce0;
+  --aurora-2: #0a8fd0;
+  --aurora-3: #6b31c4;
+  --aurora-4: #8a6100;
+  --aurora-opacity: 0.1;
+  --noise-opacity: 0.03;
+  --elev-1: 0 1px 2px rgb(16 24 40 / 0.08), var(--glass-highlight);
+  --elev-2: 0 8px 24px -14px rgb(16 24 40 / 0.22), var(--glass-highlight);
+  --elev-3: 0 18px 48px -20px rgb(16 24 40 / 0.28), var(--glass-highlight);
+  --elev-4: 0 32px 80px -28px rgb(16 24 40 / 0.32), var(--glass-highlight);
 }

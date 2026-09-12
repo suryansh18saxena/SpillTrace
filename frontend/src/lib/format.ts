@@ -100,9 +100,11 @@ export function formatRelativeTime(
   return 'just now';
 }
 
-/** `1h 04m`, `47s`, `2d 3h` — for job runtimes. Input is seconds. */
+/** `1h 04m`, `47s`, `2d 3h`, `420 ms` — for job runtimes. Input is seconds. */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return EMPTY_VALUE;
+  // A stage that took 0.4 s did take time; "0s" would read as "did not run".
+  if (seconds > 0 && seconds < 1) return `${Math.max(1, Math.round(seconds * 1000))} ms`;
   const total = Math.max(0, Math.round(seconds));
   if (total < 60) return `${total}s`;
 
@@ -253,14 +255,41 @@ export function formatCoordinate(
 
 // ------------------------------------------------------------------- strings
 
-/** `drift.hindcast` → `Drift hindcast`; `FALSE_POSITIVE` → `False positive`. */
+/** Words that stay upper-case when an identifier is humanised. */
+const ACRONYMS = new Set([
+  'ais',
+  'aoi',
+  'api',
+  'cdse',
+  'cmems',
+  'cpu',
+  'gpu',
+  'id',
+  'imo',
+  'iou',
+  'ml',
+  'mmsi',
+  'sar',
+  'sog',
+  'cog',
+  'url',
+  'utc',
+]);
+
+/**
+ * `drift.hindcast` → `Drift hindcast`; `FALSE_POSITIVE` → `False positive`;
+ * `ais.ingest` → `AIS ingest` (known acronyms keep their capitals).
+ */
 export function humanizeIdentifier(value: string | null | undefined): string {
   if (!value) return EMPTY_VALUE;
   const words = value
     .replace(/[._-]+/g, ' ')
     .trim()
-    .toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => (ACRONYMS.has(word) ? word.toUpperCase() : word));
+  const sentence = words.join(' ');
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
 /** `1` → `1st`, `2` → `2nd` — used for candidate rank. */

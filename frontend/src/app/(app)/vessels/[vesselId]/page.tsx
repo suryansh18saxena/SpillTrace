@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
 import type { FeatureCollection } from 'geojson';
+import { ConfidenceBadge } from '@/components/attribution/ConfidenceBadge';
 import { CaseSubNav } from '@/components/common/CaseSubNav';
 import { MetaList, Readout, ReadoutGrid } from '@/components/common/MetaList';
 import { Notice } from '@/components/common/Notice';
@@ -19,8 +21,10 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Table, type Column } from '@/components/ui/Table';
+import { UNIVERSE_CASE_LIMIT, useCaseUniverse } from '@/lib/api/aggregate';
 import { useVessel, useVesselPositions, useVessels } from '@/lib/api/hooks';
 import type { AisPosition, TrajectorySegment } from '@/lib/api/types';
+import { cx } from '@/lib/cx';
 import {
   EMPTY_VALUE,
   formatBearing,
@@ -33,15 +37,169 @@ import {
   formatMmsi,
   formatNumber,
   formatPercent,
+  formatScore,
   formatSpeedKn,
+  pluralize,
   truncateId,
 } from '@/lib/format';
+import { vesselAppearances } from '@/lib/insights';
 import layout from '@/components/layout/layout.module.css';
 import styles from '@/styles/pages.module.css';
+import history from '../vessels.module.css';
 
 /** Positions the small map draws. The endpoint caps a page at 200 rows. */
 const TRACK_LIMIT = 200;
 const TABLE_PAGE = 25;
+
+/**
+ * "History across your cases": every aggregated case this MMSI was observed
+ * in, with its rank where one was assigned.
+ *
+ * Matched by MMSI, because that is the identifier a vessel keeps from case to
+ * case. The list is a record of where the vessel has appeared, nothing more: a
+ * vessel on a regular route through a busy lane reappears as a candidate simply
+ * because it is often there, so repetition is never framed as a pattern
+ * (CON-001).
+ */
+function VesselCaseHistory({ mmsi, currentCaseId }: { mmsi: number; currentCaseId?: string }) {
+  const universe = useCaseUniverse({ vessels: true, attributions: true });
+  const loading = universe.isPending || universe.isLoadingDetails;
+  const entry = vesselAppearances(universe.bundles).find((item) => item.mmsi === mmsi);
+  const bundles = new Map(universe.bundles.map((bundle) => [bundle.case.id, bundle]));
+  const rankedCases = new Set(entry?.candidateIn.map((ranking) => ranking.caseId));
+  // The rankings' own caveats, verbatim and de-duplicated, for every case whose
+  // score is shown here.
+  const disclaimers = Array.from(
+    new Set(
+      universe.bundles
+        .filter((bundle) => rankedCases.has(bundle.case.id))
+        .flatMap((bundle) => [
+          bundle.attributions?.disclaimer,
+          bundle.attributions?.score_disclaimer,
+        ])
+        .map((text) => text?.trim())
+        .filter((text): text is string => Boolean(text)),
+    ),
+  );
+
+  let body;
+  if (universe.isError) {
+    body = <ErrorState compact error={universe.error} onRetry={universe.refetch} />;
+  } else if (!entry && loading) {
+    body = (
+      <div className={history.historySkeleton} aria-busy="true">
+        <span className="sr-only">Loading case history</span>
+        <Skeleton height="3rem" radius="var(--radius-md)" />
+        <Skeleton height="3rem" radius="var(--radius-md)" />
+      </div>
+    );
+  } else if (!entry) {
+    body = (
+      <EmptyState
+        compact
+        title="Not found in your recent cases"
+        description={`This MMSI does not appear in the ${pluralize(universe.cases.length, 'case')} aggregated here. It may belong to a case outside the ${UNIVERSE_CASE_LIMIT} most recent, or a per-case request may have failed.`}
+      />
+    );
+  } else {
+    body = (
+      <>
+        <dl className={history.historyStats}>
+          <div>
+            <dt>Observed in</dt>
+            <dd>{pluralize(entry.observedIn.length, 'case')}</dd>
+          </div>
+          <div>
+            <dt>Candidate in</dt>
+            <dd>{pluralize(entry.candidateIn.length, 'case')}</dd>
+          </div>
+        </dl>
+        <ol className={history.historyList}>
+          {entry.observedIn.map((ref) => {
+            const bundle = bundles.get(ref.caseId);
+            const ranking = entry.candidateIn
+              .filter((item) => item.caseId === ref.caseId)
+              .sort((a, b) => a.rank - b.rank)[0];
+            const of = bundle?.attributions?.total;
+            return (
+              <li
+                key={ref.caseId}
+                className={cx(history.historyItem, ranking && history.historyItemRanked)}
+              >
+                <div className={history.historyHead}>
+                  <Link href={`/cases/${ref.caseId}`} className={history.historyCase}>
+                    {ref.caseTitle}
+                  </Link>
+                  <span className={styles.badgeRow}>
+                    {ref.caseId === currentCaseId ? <Badge tone="neutral">This case</Badge> : null}
+                    <ProvenanceBadge provenance={bundle?.case.data_provenance} />
+                  </span>
+                </div>
+                <div className={history.historyOutcome}>
+                  {ranking ? (
+                    <>
+                      <span className={history.historyFigure}>
+                        <span className={history.historyFigureLabel}>Rank</span>#{ranking.rank}
+                        {of ? ` of ${of}` : ''}
+                      </span>
+                      <span className={history.historyFigure}>
+                        <span className={history.historyFigureLabel}>Score</span>
+                        {formatScore(ranking.score)}
+                      </span>
+                      <ConfidenceBadge label={ranking.band} />
+                    </>
+                  ) : bundle?.attributions ? (
+                    <span className={history.historyUnranked}>Observed, not ranked</span>
+                  ) : (
+                    // Unknown is not "not ranked": the ranking itself did not load.
+                    <span className={history.historyUnranked}>Ranking not available</span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <p className={history.historyCaveat}>
+          Appearing as a candidate in several cases is history, not evidence of wrongdoing — a
+          vessel on a regular route through a busy lane will reappear simply because it is often
+          there.
+        </p>
+        {universe.truncated ? (
+          <p className={history.coverageNote}>
+            Covers the {UNIVERSE_CASE_LIMIT} most recent of {universe.total} cases.
+          </p>
+        ) : null}
+        {universe.failedDetails > 0 ? (
+          <p className={history.coverageNote}>
+            {universe.failedDetails} per-case request{universe.failedDetails === 1 ? '' : 's'} could
+            not be loaded; this history excludes them.
+          </p>
+        ) : null}
+        {disclaimers.length > 0 ? (
+          <div className={history.historyNotices}>
+            {disclaimers.map((text, index) => (
+              // One label for the group; every caveat still verbatim in its own notice.
+              <Notice
+                key={text}
+                text={text}
+                label={index === 0 ? 'About the rankings' : undefined}
+              />
+            ))}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <Card
+      title="History across your cases"
+      description="Every case in which this MMSI was observed in AIS, and its rank wherever it was ranked as a candidate."
+    >
+      {body}
+    </Card>
+  );
+}
 
 function VesselDetail() {
   const params = useParams<{ vesselId: string }>();
@@ -508,6 +666,8 @@ function VesselDetail() {
                   ]}
                 />
               </Card>
+
+              <VesselCaseHistory mmsi={vessel.mmsi} currentCaseId={caseId} />
 
               <Card
                 title="AIS quality"

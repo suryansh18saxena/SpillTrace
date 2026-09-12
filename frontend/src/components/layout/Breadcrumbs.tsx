@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Fragment } from 'react';
 import { IconChevronRight } from '@/components/ui/Icons';
 import { useCase } from '@/lib/api/hooks';
-import { truncateId } from '@/lib/format';
+import { humanizeIdentifier, truncateId } from '@/lib/format';
+import { ROUTE_LABELS } from './nav';
 import styles from './layout.module.css';
 
 interface Crumb {
@@ -14,9 +15,11 @@ interface Crumb {
 }
 
 const STATIC_LABELS: Record<string, string> = {
-  cases: 'Cases',
-  new: 'New case',
-  admin: 'System status',
+  ...ROUTE_LABELS,
+  spill: 'Spill details',
+  drift: 'Drift & origin',
+  ranking: 'Vessel ranking',
+  report: 'Evidence report',
 };
 
 /**
@@ -37,12 +40,14 @@ export function Breadcrumbs() {
 
   const crumbs: Crumb[] = [];
   let href = '';
-  for (const segment of segments) {
+  for (const [index, segment] of segments.entries()) {
     href += `/${segment}`;
     if (segment === caseId) {
       crumbs.push({ label: caseData?.title ?? truncateId(caseId, 8, 4), href });
+    } else if (segments[0] === 'vessels' && index === 1) {
+      crumbs.push({ label: `Vessel ${truncateId(segment, 8, 4)}`, href });
     } else {
-      crumbs.push({ label: STATIC_LABELS[segment] ?? segment, href });
+      crumbs.push({ label: STATIC_LABELS[segment] ?? humanizeIdentifier(segment), href });
     }
   }
 

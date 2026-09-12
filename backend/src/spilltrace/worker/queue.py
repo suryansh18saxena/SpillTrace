@@ -122,6 +122,11 @@ class JobQueue:
     async def depth(self) -> int:
         return int(await self._client.llen(QUEUE_KEY))
 
+    async def queued_ids(self) -> set[str]:
+        """Every job id currently waiting in the Redis list (for reconciliation)."""
+        raw = await self._client.lrange(QUEUE_KEY, 0, -1)
+        return {item.decode() if isinstance(item, bytes) else str(item) for item in raw}
+
     async def close(self) -> None:
         await self._client.aclose()
 

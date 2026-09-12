@@ -16,18 +16,25 @@
 html {
   -webkit-text-size-adjust: 100%;
   height: 100%;
+  background: var(--color-bg);
 }
 
 body {
-  height: 100%;
+  min-height: 100%;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  color: var(--color-text);
 }
 
 img,
@@ -76,6 +83,7 @@ h5,
 h6 {
   font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
+  letter-spacing: -0.012em;
 }
 
 h1 {
@@ -117,6 +125,7 @@ legend {
 a {
   color: var(--color-accent-text);
   text-decoration: none;
+  text-underline-offset: 3px;
 }
 
 a:hover {
@@ -131,6 +140,21 @@ pre,
   font-family: var(--font-mono);
   font-size: 0.95em;
   font-variant-ligatures: none;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  padding: 0 0.35em;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 2px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1;
 }
 
 hr {
@@ -199,6 +223,87 @@ hr {
   }
 }
 
+/* Theme switch: the new theme grows as a circle from the toggle (see
+   `lib/themeTransition.ts`). The default cross-fade is disabled so only the
+   clip-path reveal plays. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* ------------------------------------------------------ motion: scroll reveal */
+/*
+ * `[data-reveal]` content is hidden before first paint ONLY when the head script
+ * stamped `data-motion="ok"` — i.e. scripting runs and the visitor has not asked
+ * for reduced motion. GSAP marks each element `data-reveal-ready` the moment it
+ * takes control, which drops this rule.
+ *
+ * The failsafe animation matters: if hydration fails or GSAP never mounts, the
+ * content fades itself in after 2.5 s rather than staying invisible forever. It
+ * only applies while `data-reveal-ready` is absent, so it can never fight a
+ * GSAP tween that is actually running.
+ */
+[data-motion='ok'] [data-reveal]:not([data-reveal-ready]) {
+  opacity: 0;
+  animation: st-reveal-failsafe 0.6s var(--ease-out) 2.5s forwards;
+}
+
+@keyframes st-reveal-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+
+/* ----------------------------------------------------------------- utilities */
+
+/* Editorial italic accent. Headlines on public surfaces only — never a number. */
+.serif {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.text-gradient {
+  background: var(--gradient-headline);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-text);
+}
+
+/* Film grain. A single static tile at very low opacity — no blend mode, which
+   would force the compositor to repaint everything beneath it on scroll. */
+.grain {
+  position: relative;
+}
+
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-theme='light'] .grain::after {
+  opacity: 0.025;
+}
+
 /* -------------------------------------------------------------- scrollbars */
 
 * {
@@ -222,6 +327,11 @@ hr {
   border-radius: var(--radius-full);
 }
 
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-accent) 45%, var(--color-border-strong));
+  background-clip: content-box;
+}
+
 /* ------------------------------------------------------- MapLibre overrides */
 /*
  * MapLibre ships light-theme chrome. Re-skin its controls with our tokens so the
@@ -234,21 +344,26 @@ hr {
 }
 
 .maplibregl-ctrl-group {
-  background: var(--color-surface-overlay);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-md);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-md), var(--highlight-top);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
 
+.maplibregl-ctrl-group:not(:empty) {
+  box-shadow: var(--shadow-md), var(--highlight-top);
+}
+
 .maplibregl-ctrl-group button {
   background: transparent;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
 }
 
 .maplibregl-ctrl-group button + button {
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--glass-border);
 }
 
 .maplibregl-ctrl-group button:hover:not(:disabled) {
@@ -269,7 +384,7 @@ hr {
 }
 
 .maplibregl-ctrl-attrib.maplibregl-compact {
-  background: var(--color-surface-overlay);
+  background: var(--glass-bg-strong);
   color: var(--color-text-secondary);
 }
 
@@ -278,11 +393,12 @@ hr {
 }
 
 .maplibregl-popup-content {
-  background: var(--color-surface-overlay);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
   color: var(--color-text);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg), var(--highlight-top);
   padding: var(--space-3);
   font-size: var(--text-xs);
 }
@@ -298,4 +414,41 @@ hr {
   border-bottom-color: var(--color-surface-overlay) !important;
   border-left-color: var(--color-surface-overlay) !important;
   border-right-color: var(--color-surface-overlay) !important;
+}
+
+/* ------------------------------------------------------- v3: glass & neo utilities */
+
+.glass {
+  background: var(--glass-2-bg);
+  border: 1px solid var(--glass-2-border);
+  backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--glass-edge), var(--glass-shadow);
+}
+
+.glass-strong {
+  background: var(--glass-3-bg);
+  border: 1px solid var(--glass-3-border);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--glass-edge), var(--glass-shadow);
+}
+
+.neo {
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+}
+
+.neo-inset {
+  background: var(--neo-bg);
+  box-shadow: var(--neo-inset);
+}
+
+@keyframes shimmerSlide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }

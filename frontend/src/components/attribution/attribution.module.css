@@ -1,17 +1,31 @@
 /* Candidate ranking (UI-007 surface used by the investigation shell). */
 
 .disclaimer {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-left: 3px solid var(--confidence-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--confidence-2) 35%, var(--color-border));
   border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  background:
+    linear-gradient(90deg, var(--confidence-2-subtle), transparent 60%),
+    color-mix(in srgb, var(--color-bg-subtle) 85%, transparent);
   font-size: var(--text-xs);
   line-height: var(--leading-relaxed);
   color: var(--color-text-secondary);
+  overflow: hidden;
+}
+
+.disclaimer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--confidence-2);
+  box-shadow: 0 0 14px var(--confidence-2);
 }
 
 .disclaimerIcon {
@@ -26,11 +40,12 @@
 
 .disclaimerLabel {
   display: block;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-wide);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--confidence-2-text);
   margin-bottom: 2px;
 }
 
@@ -43,12 +58,33 @@
 .candidate {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-surface-raised) 95%, transparent),
+    color-mix(in srgb, var(--color-surface) 95%, transparent)
+  );
+  box-shadow: var(--highlight-top);
   overflow: hidden;
+  transition:
+    border-color var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+
+.candidate:hover {
+  border-color: var(--color-border-strong);
+  box-shadow:
+    var(--highlight-top),
+    0 12px 28px -18px color-mix(in srgb, var(--color-accent) 70%, transparent);
+}
+
+.candidate[open] {
+  border-color: var(--color-accent-border);
 }
 
 .candidateSummary {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
@@ -61,7 +97,7 @@
 }
 
 .candidateSummary:hover {
-  background: var(--color-surface-hover);
+  background: color-mix(in srgb, var(--color-surface-hover) 60%, transparent);
 }
 
 .candidateSummary:focus-visible {
@@ -69,28 +105,35 @@
   outline-offset: -2px;
 }
 
+/* Rank is a neutral chip on purpose: a colour for rank 1 would read as a
+   verdict. Only the evidence-strength badge carries the confidence ramp. */
 .rank {
   display: grid;
   place-items: center;
   flex: none;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-strong);
   background: var(--color-bg-subtle);
+  box-shadow: var(--highlight-top);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
   color: var(--color-text-secondary);
 }
 
 .candidateIdentity {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .vesselName {
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -99,6 +142,7 @@
 
 .vesselIds {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -113,41 +157,74 @@
 }
 
 .scoreValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
   color: var(--color-text);
   line-height: 1;
+  text-align: right;
 }
 
 .scoreCaption {
   display: block;
   font-family: var(--font-sans);
-  font-size: var(--text-2xs);
+  font-size: 0.6rem;
   font-weight: var(--weight-normal);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .chevron {
   flex: none;
   color: var(--color-text-muted);
-  transition: transform var(--duration-fast) var(--easing);
+  transition: transform var(--duration-normal) var(--ease-out);
 }
 
 .candidate[open] .chevron {
   transform: rotate(90deg);
+  color: var(--color-accent-text);
+}
+
+/* Contribution strip: the six weighted contributions laid end to end on a 0–1
+   track. Decorative summary of the table below it (aria-hidden); segments are
+   separated by a surface gap, never by colour, and every value is readable in
+   the factor rows and the evidence table. */
+.contribStrip {
+  display: flex;
+  flex-basis: 100%;
+  gap: 2px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  overflow: hidden;
+}
+
+.contribSegment {
+  height: 100%;
+  background: var(--chart-series-1);
+  opacity: 0.85;
+}
+
+.contribSegment:nth-child(even) {
+  opacity: 0.55;
 }
 
 .candidateBody {
-  padding: 0 var(--space-3) var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-3);
+  animation: bodyIn 420ms var(--ease-out);
+}
+
+@keyframes bodyIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .factor {
@@ -201,4 +278,11 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
+}
+
+.weightsRow > span {
+  padding: 1px 0.45rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
 }

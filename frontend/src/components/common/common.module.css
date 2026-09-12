@@ -3,29 +3,47 @@
 /* ================================================================== Notice */
 
 .notice {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-left: 3px solid var(--color-neutral);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--notice-tone, var(--color-neutral)) 9%, transparent),
+      transparent 55%
+    ),
+    color-mix(in srgb, var(--color-bg-subtle) 80%, transparent);
   font-size: var(--text-xs);
   line-height: var(--leading-relaxed);
   color: var(--color-text-secondary);
+  overflow: hidden;
+}
+
+.notice::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--notice-tone, var(--color-neutral));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--notice-tone, var(--color-neutral)) 70%, transparent);
 }
 
 .noticeCaution {
-  border-left-color: var(--confidence-2);
+  --notice-tone: var(--confidence-2);
 }
 
 .noticeInfo {
-  border-left-color: var(--color-accent);
+  --notice-tone: var(--color-accent);
 }
 
 .noticeSynthetic {
-  border-left-color: var(--provenance-synthetic);
+  --notice-tone: var(--provenance-synthetic);
 }
 
 .noticeIcon {
@@ -43,7 +61,7 @@
 }
 
 .noticeSynthetic .noticeIcon {
-  color: var(--provenance-synthetic);
+  color: color-mix(in srgb, var(--provenance-synthetic) 75%, var(--color-text));
 }
 
 .noticeBody {
@@ -52,9 +70,10 @@
 
 .noticeLabel {
   display: block;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-wide);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-text-muted);
   margin-bottom: 2px;
@@ -77,18 +96,22 @@
 
 .metaListDense {
   grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-3);
 }
 
 .metaEntry {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
+.metaEntryWide {
+  grid-column: 1 / -1;
+}
+
 .metaTerm {
-  font-size: var(--text-2xs);
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
   color: var(--color-text-muted);
@@ -115,16 +138,34 @@
 
 .readoutGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: var(--space-3);
 }
 
 .readout {
-  padding: var(--space-3);
+  position: relative;
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-surface-raised) 95%, transparent),
+    color-mix(in srgb, var(--color-surface) 90%, transparent)
+  );
+  box-shadow: var(--highlight-top);
   min-width: 0;
+  overflow: hidden;
+}
+
+.readout::after {
+  content: '';
+  position: absolute;
+  right: -30%;
+  top: -60%;
+  width: 70%;
+  height: 120%;
+  background: radial-gradient(circle, var(--color-accent-subtle), transparent 70%);
+  pointer-events: none;
 }
 
 .readoutLabel {
@@ -134,18 +175,21 @@
   color: var(--color-text-muted);
 }
 
+/* Stat values are the one number on the tile: sans, semibold, proportional
+   figures — tabular spacing is for columns, not standalone values. */
 .readoutValue {
-  margin-top: var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xl);
+  margin-top: var(--space-2);
+  font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
+  font-variant-numeric: proportional-nums;
+  letter-spacing: -0.025em;
   color: var(--color-text);
-  line-height: 1.1;
+  line-height: 1.05;
   overflow-wrap: anywhere;
 }
 
 .readoutCaption {
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
   line-height: var(--leading-normal);

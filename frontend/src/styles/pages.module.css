@@ -1,72 +1,24 @@
 /* Page-level layout shared by the route components. */
 
-/* ================================================================== Login */
-
-.authScreen {
-  display: grid;
-  place-items: center;
-  min-height: 100dvh;
-  padding: var(--space-6) var(--space-4);
-  background:
-    radial-gradient(120rem 60rem at 50% -20%, var(--color-surface) 0%, transparent 60%),
-    var(--color-bg);
-}
-
-.authCard {
-  width: min(26rem, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.authBrand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.authBrandMark {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--radius-md);
-  background: var(--color-accent-subtle);
-  border: 1px solid var(--color-accent-border);
-  color: var(--color-accent-text);
-}
-
-.authTitle {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-wide);
-}
-
-.authSubtitle {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-.authForm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.authFooter {
-  font-size: var(--text-2xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
-}
-
 /* ============================================================== Filter bar */
 
 .filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: var(--space-3);
-  align-items: end;
+  gap: var(--space-3) var(--space-4);
+  /* Top-aligned: labels line up, and a field with a hint under it no longer
+     pushes its neighbours' inputs out of line. */
+  align-items: start;
   margin-bottom: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-surface-raised) 80%, transparent),
+    color-mix(in srgb, var(--color-surface) 70%, transparent)
+  );
+  box-shadow: var(--highlight-top);
 }
 
 .filterActions {
@@ -99,13 +51,14 @@
 .cellPrimary {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .cellLink {
   color: var(--color-text);
   font-weight: var(--weight-medium);
   text-decoration: none;
+  transition: color var(--duration-fast) var(--easing);
 }
 
 .cellLink:hover {
@@ -122,7 +75,7 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  max-width: 40ch;
+  max-width: 44ch;
 }
 
 .badgeRow {
@@ -136,7 +89,7 @@
 .createGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -147,9 +100,10 @@
 }
 
 .mapPane {
-  height: clamp(20rem, 52vh, 34rem);
+  height: clamp(20rem, 54vh, 36rem);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
@@ -174,7 +128,7 @@
 
 .investigation {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 24rem;
+  grid-template-columns: minmax(0, 1fr) 25rem;
   flex: 1;
   min-height: 0;
 }
@@ -202,7 +156,12 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--color-bg-subtle);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-subtle) 92%, transparent),
+    color-mix(in srgb, var(--color-bg) 92%, transparent)
+  );
+  backdrop-filter: blur(12px);
   overflow-y: auto;
   max-height: calc(100dvh - var(--layout-header-height));
 }
@@ -214,14 +173,18 @@
 }
 
 .panelSection {
-  padding: var(--space-4);
+  padding: var(--space-5);
   border-bottom: 1px solid var(--color-border);
 }
 
 .panelHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-wide);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-text-muted);
   margin-bottom: var(--space-3);
@@ -230,12 +193,14 @@
 .caseSummary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .caseTitle {
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
   color: var(--color-text);
 }
 
@@ -261,7 +226,8 @@
 
 .metaValue {
   font-size: var(--text-xs);
-  color: var(--color-text);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
   overflow-wrap: anywhere;
 }
 
@@ -294,9 +260,10 @@
 
 .statValue {
   margin-top: var(--space-1);
-  font-family: var(--font-mono);
   font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
+  font-variant-numeric: proportional-nums;
+  letter-spacing: -0.02em;
   color: var(--color-text);
   line-height: 1.1;
 }
@@ -304,7 +271,7 @@
 .sectionStack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .jobsScroll {
@@ -313,6 +280,7 @@
   gap: var(--space-2);
   max-height: 26rem;
   overflow-y: auto;
+  padding-right: 2px;
 }
 
 /* ============================================================ Error / 404 */
@@ -332,7 +300,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6);
+  padding: var(--space-8);
 }
 
 /* ======================================================= Sub-navigation rows */
@@ -341,7 +309,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .panelNotices {
@@ -353,13 +321,13 @@
 .detailStack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .detailGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.6fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -370,9 +338,10 @@
 }
 
 .detailMap {
-  height: clamp(16rem, 40vh, 28rem);
+  height: clamp(16rem, 42vh, 30rem);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
@@ -391,13 +360,13 @@
 
 .manifest {
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  background: color-mix(in srgb, var(--color-bg) 70%, var(--color-bg-subtle));
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  line-height: var(--leading-normal);
+  line-height: var(--leading-relaxed);
   color: var(--color-text-secondary);
   overflow-x: auto;
   max-height: 24rem;
@@ -414,15 +383,17 @@
 
 .reportFrame {
   width: 100%;
-  min-height: clamp(28rem, 70vh, 60rem);
+  min-height: clamp(28rem, 72vh, 62rem);
   border: 0;
   border-radius: var(--radius-md);
   background: #ffffff;
+  box-shadow: var(--shadow-lg);
 }
 
 /* ================================================================ Timelines */
 
 .eventTimeline {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -472,26 +443,36 @@
 /* ======================================================= Case section tabs */
 
 .caseNav {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--space-2);
+  gap: 2px;
+  margin-bottom: var(--space-5);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-bg-subtle) 85%, transparent);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+[data-theme='light'] .caseNav {
+  box-shadow: inset 0 1px 2px rgb(16 24 40 / 0.06);
 }
 
 .caseNavLink {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+  padding: 0.45rem var(--space-4);
+  border-radius: calc(var(--radius-md) - 3px);
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
   text-decoration: none;
-  border: 1px solid transparent;
+  transition:
+    color var(--duration-normal) var(--ease-out),
+    background-color var(--duration-normal) var(--ease-out);
 }
 
 .caseNavLink:hover {
-  background: var(--color-surface-hover);
   color: var(--color-text);
+  text-decoration: none;
 }
 
 .caseNavLink:focus-visible {
@@ -499,11 +480,20 @@
   outline-offset: 2px;
 }
 
-.caseNavLinkActive {
-  background: var(--color-accent-subtle);
-  border-color: var(--color-accent-border);
-  color: var(--color-accent-text);
-  font-weight: var(--weight-medium);
+.caseNavLinkActive,
+.caseNavLinkActive:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+  box-shadow:
+    var(--highlight-top),
+    0 1px 3px rgb(0 0 0 / 0.35),
+    0 0 0 1px var(--color-border-strong);
+}
+
+[data-theme='light'] .caseNavLinkActive {
+  box-shadow:
+    0 1px 3px rgb(16 24 40 / 0.12),
+    0 0 0 1px var(--color-border);
 }
 
 .readoutRowSkeleton {

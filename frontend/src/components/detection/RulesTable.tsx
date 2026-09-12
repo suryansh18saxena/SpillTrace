@@ -38,7 +38,7 @@ const OUTCOME_TITLE: Record<RuleOutcome, string> = {
   pass: 'The observation is consistent with an oil-like surface film for this rule.',
   fail: 'The observation is not consistent with an oil-like film for this rule.',
   'not-evaluated':
-    'This rule could not be evaluated — the input it needs was not available. It is not a failure and it did not lower the confidence.',
+    'This rule could not be evaluated — the input it needs was not available. It is not a failure and does not count against the detection, but it reduces how much of the evidence was checked, which lowers the verification confidence; below 45 % coverage the verdict is UNCERTAIN.',
 };
 
 function formatScalar(value: number): string {

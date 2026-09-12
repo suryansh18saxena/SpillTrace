@@ -24,6 +24,8 @@ WORKDIR /app
 # ---------------------------------------------------------------- deps layer
 FROM base AS deps
 ARG INSTALL_ML=false
+# Real Copernicus Marine (CMEMS) provider — pulls xarray/dask/zarr, ~300 MB.
+ARG INSTALL_PROVIDERS=false
 # Test tooling ships in development images; production builds set INSTALL_DEV=false.
 ARG INSTALL_DEV=true
 COPY backend/pyproject.toml backend/README.md /app/backend/
@@ -36,6 +38,7 @@ RUN if [ "$INSTALL_ML" = "true" ]; then \
         pip install --index-url https://download.pytorch.org/whl/cpu \
             "torch==2.5.1" "torchvision==0.20.1" ; \
     fi
+RUN if [ "$INSTALL_PROVIDERS" = "true" ]; then pip install -e "/app/backend[providers]" ; fi
 
 # ---------------------------------------------------------------- runtime
 FROM deps AS runtime

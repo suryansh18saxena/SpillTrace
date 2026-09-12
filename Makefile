@@ -74,6 +74,9 @@ build: check-runtime ## Build all images
 build-ml: check-runtime ## Rebuild the backend image with PyTorch included
 	$(DC) build --build-arg INSTALL_ML=true api worker
 
+build-providers: check-runtime ## Rebuild the backend image with the CMEMS provider (copernicusmarine)
+	$(DC) build --build-arg INSTALL_PROVIDERS=true api worker ais-ingestor
+
 .PHONY: migrate
 migrate: ## Apply database migrations
 	$(BACKEND_EXEC) alembic upgrade head

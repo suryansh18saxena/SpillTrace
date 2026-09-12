@@ -178,6 +178,9 @@ class UNetModel:
         self._module: Any = None
         self._torch: Any = None
         self._metrics: dict[str, Any] = dict(checkpoint.params.get("metrics") or {})
+        self._architecture: dict[str, Any] = {}
+        self._parameters: int = 0
+        self._training_args: dict[str, Any] = {}
         self._load()
 
     # ------------------------------------------------------------------ loading
@@ -198,32 +201,77 @@ class UNetModel:
                 "run with a trained model."
             )
 
-        from spilltrace.ml.unet import UNetConfig, build_unet
-
         payload = torch.load(str(path), map_location=self._device, weights_only=False)
-        state = payload.get("state_dict") if isinstance(payload, dict) else None
-        if state is None:
+        if not isinstance(payload, dict):
             raise ModelNotAvailableError(
-                f"The checkpoint at {path} has no 'state_dict'; it cannot be loaded as "
-                "a SPILLTRACE U-Net."
+                f"The checkpoint at {path} is not a dict payload; it cannot be loaded as a "
+                "SPILLTRACE segmentation model."
             )
-        config = UNetConfig.from_dict(
-            (payload.get("model_config") if isinstance(payload, dict) else None) or {}
-        )
-        module = build_unet(config)
+
+        state: Any = payload.get("state_dict")
+        architecture: dict[str, Any]
+        module: Any
+        if state is not None:
+            # The repository's own trainer (ml/src/train.py): plain U-Net + model_config.
+            from spilltrace.ml.unet import UNetConfig, build_unet
+
+            config = UNetConfig.from_dict(payload.get("model_config") or {})
+            module = build_unet(config)
+            architecture = {"architecture": "spilltrace-unet", **config.to_dict()}
+        else:
+            # segmentation_models_pytorch ``Unet`` saved as ``{"model": state_dict, ...}``
+            # (the Colab-trained ResNet-34 checkpoint, AD-14).
+            from spilltrace.ml.resnet_unet import (
+                build_resnet_unet,
+                config_from_state_dict,
+                looks_like_smp_state_dict,
+            )
+
+            state = payload.get("model")
+            if not isinstance(state, dict) or not looks_like_smp_state_dict(state):
+                raise ModelNotAvailableError(
+                    f"The checkpoint at {path} has neither a 'state_dict' (SPILLTRACE U-Net) "
+                    "nor an smp-style 'model' state dict; it cannot be loaded."
+                )
+            try:
+                resnet_config = config_from_state_dict(state)
+            except KeyError as exc:
+                raise ModelNotAvailableError(
+                    f"The checkpoint at {path} is missing expected tensors: {exc}"
+                ) from exc
+            module = build_resnet_unet(resnet_config)
+            architecture = resnet_config.to_dict()
+            self._training_args = dict(payload.get("args") or {})
+            validation = payload.get("val")
+            if not self._metrics and isinstance(validation, dict) and validation:
+                # Only the training script's own validation-split numbers exist in this
+                # file.  They are recorded under an explicit 'validation' group so nobody
+                # reads them as held-out test performance.
+                self._metrics = {
+                    "validation": {
+                        key: float(value)
+                        for key, value in validation.items()
+                        if isinstance(value, int | float)
+                    },
+                    "split": "validation (training-time hold-out, not an independent test set)",
+                }
+            if isinstance(payload.get("epoch"), int):
+                self._metrics.setdefault("epoch", int(payload["epoch"]))
         try:
             module.load_state_dict(state)
         except (RuntimeError, KeyError) as exc:
             raise ModelNotAvailableError(
-                f"The checkpoint at {path} does not match the U-Net architecture: {exc}"
+                f"The checkpoint at {path} does not match the {architecture.get('architecture')} "
+                f"architecture: {exc}"
             ) from exc
+        self._architecture = architecture
+        self._parameters = int(sum(p.numel() for p in module.parameters()))
         module.eval()
         module.to(self._device)
 
         self._torch = torch
         self._module = module
-        self._config = config
-        if isinstance(payload, dict) and isinstance(payload.get("metrics"), dict):
+        if isinstance(payload.get("metrics"), dict) and payload["metrics"]:
             self._metrics = dict(payload["metrics"])
         log.info(
             "unet_checkpoint_loaded",
@@ -247,23 +295,41 @@ class UNetModel:
             "input_channels": self._checkpoint.input_channels,
             "input_size": self._checkpoint.input_size,
             "normalization": dict(self._checkpoint.normalization),
+            "architecture": dict(self._architecture),
+            "parameter_count": self._parameters,
             # Empty unless a training run measured them.  Never populated by default.
             "metrics": dict(self._metrics),
+            "notes": list(self._notes()),
         }
 
-    async def predict(self, tiles: Any) -> SegmentationResult:
-        stack, squeeze = _as_tile_stack(tiles)
-        probability = await asyncio.to_thread(self._infer, stack)
+    def _notes(self) -> list[str]:
         notes: list[str] = []
         if not self._metrics:
             notes.append(
                 "This model version has no measured evaluation metrics recorded, so its "
                 "accuracy on this scene is unknown."
             )
+        elif "validation" in self._metrics and "test" not in self._metrics:
+            notes.append(
+                "The recorded metrics are validation-split numbers from the training run, "
+                "not an independent test set; treat them as an upper bound."
+            )
+        if self._architecture.get("architecture") == "segmentation_models_pytorch.Unet":
+            notes.append(
+                "Training-time input normalisation was not recorded in this checkpoint; "
+                "inference applies the platform's per-scene percentile-clip "
+                "standardisation (AD-12), so a distribution mismatch is possible."
+            )
         notes.append(
             "Public SAR oil-spill benchmarks are overwhelmingly European waters; "
             "performance in other regions is documented to be lower (AD-13)."
         )
+        return notes
+
+    async def predict(self, tiles: Any) -> SegmentationResult:
+        stack, squeeze = _as_tile_stack(tiles)
+        probability = await asyncio.to_thread(self._infer, stack)
+        notes = self._notes()
         return SegmentationResult(
             probability=probability[0] if squeeze else probability,
             model_name=self.name,

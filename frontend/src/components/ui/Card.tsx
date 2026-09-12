@@ -1,6 +1,11 @@
+'use client';
+
 import type { ElementType, ReactNode } from 'react';
+import { useSpotlight } from '@/components/motion/useSpotlight';
 import { cx } from '@/lib/cx';
 import styles from './ui.module.css';
+
+export type CardVariant = 'glass' | 'solid' | 'neo';
 
 export interface CardProps {
   title?: ReactNode;
@@ -13,10 +18,23 @@ export interface CardProps {
   /** Heading level for the card title; keep the document outline sane. */
   titleAs?: ElementType;
   as?: ElementType;
+  /**
+   * `glass` (default) is a frosted panel over the aurora; `solid` is opaque for
+   * dense data (tables, reports); `neo` is a soft machined block for controls.
+   */
+  variant?: CardVariant;
+  /** Lifts on hover and lights up under the cursor — for cards that are links. */
+  interactive?: boolean;
   className?: string;
   bodyClassName?: string;
   children?: ReactNode;
 }
+
+const VARIANT_CLASS: Record<CardVariant, string | undefined> = {
+  glass: undefined,
+  solid: styles.cardSolid,
+  neo: styles.cardNeo,
+};
 
 export function Card({
   title,
@@ -26,12 +44,24 @@ export function Card({
   flush = false,
   titleAs: TitleTag = 'h2',
   as: Tag = 'section',
+  variant = 'glass',
+  interactive = false,
   className,
   bodyClassName,
   children,
 }: CardProps) {
+  const spot = useSpotlight<HTMLElement>();
   return (
-    <Tag className={cx(styles.card, className)}>
+    <Tag
+      ref={interactive ? spot : undefined}
+      className={cx(
+        styles.card,
+        VARIANT_CLASS[variant],
+        interactive && styles.cardInteractive,
+        interactive && styles.cardSpot,
+        className,
+      )}
+    >
       {title || actions || description ? (
         <header className={styles.cardHeader}>
           <div className={styles.cardHeaderText}>

@@ -218,7 +218,7 @@ export function useSystemProviders(enabled = true): UseQueryResult<ProvidersResp
 
 export function useCases(
   params: CaseListParams = {},
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; refetchInterval?: number } = {},
 ): UseQueryResult<Paginated<Case>, ApiError> {
   return useQuery<Paginated<Case>, ApiError>({
     queryKey: queryKeys.caseList(params),
@@ -226,6 +226,7 @@ export function useCases(
     enabled: options.enabled ?? true,
     retry: retryPolicy,
     placeholderData: (previous) => previous,
+    ...(options.refetchInterval ? { refetchInterval: options.refetchInterval } : {}),
   });
 }
 

@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from 'next';
+import { GeistMono } from 'geist/font/mono';
+import { GeistSans } from 'geist/font/sans';
 import { APP_NAME, APP_TAGLINE } from '@/lib/config';
-import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { MOTION_INIT_SCRIPT, THEME_INIT_SCRIPT } from '@/lib/theme';
 import { Providers } from './providers';
+// Self-hosted: the CSP allows fonts from 'self' only, so nothing is fetched
+// from a font CDN at runtime (CON-004 spirit — no third-party requests).
+import '@fontsource/instrument-serif/latin-400.css';
+import '@fontsource/instrument-serif/latin-400-italic.css';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,19 +25,23 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0b0f14' },
-    { media: '(prefers-color-scheme: light)', color: '#f4f6f9' },
+    { media: '(prefers-color-scheme: dark)', color: '#03060c' },
+    { media: '(prefers-color-scheme: light)', color: '#f2f5fa' },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // `suppressHydrationWarning`: the inline script below stamps `data-theme`
-    // on <html> before React hydrates, which is the only way to avoid a flash
-    // of the wrong theme. The attribute difference is intentional.
-    <html lang="en" suppressHydrationWarning>
+    // and `data-motion` on <html> before React hydrates, which is the only way
+    // to avoid a flash of the wrong theme. The attribute difference is intentional.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+    >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: `${THEME_INIT_SCRIPT}${MOTION_INIT_SCRIPT}` }} />
       </head>
       <body>
         <a className="skip-link" href="#main-content">

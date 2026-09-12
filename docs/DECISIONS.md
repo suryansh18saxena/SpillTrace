@@ -454,3 +454,56 @@ Two further protections, both load-bearing:
   ones, and must never make the broker buffer without limit.
 * **A cap of 64 concurrent streams per process**, returning 503 with a retry hint. A
   misbehaving client degrades itself rather than everyone.
+
+### AD-33 — The production detector is an smp ResNet-34 U-Net loaded by a plain-torch twin
+
+*2026-09-12.* The first checkpoint trained on real Sentinel-1 data (`ml/runs/colab-resnet34-run3`,
+Trujillo-Acatitla Parts I/II subset, Google Colab T4) was produced by an external script with
+`segmentation_models_pytorch.Unet(encoder_name="resnet34", in_channels=2, classes=1)` and saved as
+`{"model": state_dict, "args": …, "epoch": 42, "val": {…}}` — not the format `ml/src/train.py` writes.
+
+* **Architecture:** `spilltrace/ml/resnet_unet.py` reproduces smp's module tree in plain PyTorch with
+  identical parameter names and forward semantics, so the checkpoint loads with `strict=True` and no
+  new runtime dependency (smp would pull in `timm` and `huggingface_hub`). Verified against
+  `segmentation_models_pytorch==0.5.0` on the real weights: **max |Δlogit| = 0.0** on 256², 128² and
+  512×384 inputs; 24,433,233 parameters on both sides. `UNetModel` detects the format from the payload
+  keys and still loads the repository's own plain U-Net.
+* **Metrics are validation-split, and say so.** The checkpoint's `val` block (Dice 0.841, IoU 0.725,
+  precision 0.769, recall 0.928 at epoch 42) is the training script's hold-out, not an independent test
+  set; it is registered under a `validation` group with an explicit `split` note and the ML Ops page
+  renders it as such. No test metrics are invented.
+* **Normalisation is a known gap.** The training script's input normalisation was not recorded, so
+  inference uses AD-12's per-scene percentile clip + standardisation and the model notes state that a
+  distribution mismatch is possible. The choice is recorded in every detection's run manifest.
+* **Tiling follows the model:** a trained model is tiled at its registry `input_size` (256) with a
+  3/4 stride (192); the analytical detector keeps 128/96.
+* **`INSTALL_ML` lives in `.env`** and is passed as a compose build arg, so `make up` (which builds)
+  cannot silently rebuild a torch-less image after `make build-ml`.
+* **Provenance:** a detection by a REAL model over a SYNTHETIC scene is `MIXED`, and the case rolls
+  up to the same label (see AD-34).
+
+### AD-34 — A case's provenance describes its evidence, not its author's intent
+
+*2026-09-12.* `cases.data_provenance` used to be whatever the case was created with, so the fixture
+walk-through case read **REAL** while every scene, detection and vessel in it was SYNTHETIC — a
+CON-009 violation. `spilltrace/db/provenance.py` now rolls the label up from the contributing rows
+(scenes via `case_scenes`, detections, drift runs, environmental runs, trajectories, attributions)
+with `combine_provenance` whenever a pipeline settles (`worker/pipeline.advance`); a case with no
+evidence keeps its declared label. `python -m spilltrace.db.provenance` backfilled existing rows
+(ST-2026-0001: REAL → MIXED).
+
+### AD-5 amendment — Public imagery basemaps, with an offline switch
+
+*2026-09-12.* AD-5's "zero external requests" basemap gave analysts no geographic context at all.
+Every map now composes Esri World Imagery (default), Esri Ocean, CARTO Dark/Light and the original
+offline graticule into **one** MapLibre style (`frontend/src/lib/map/basemaps.ts`), switched by layer
+visibility so evidence layers are never torn down. What changed and what did not:
+
+* Tile services are public and unauthenticated; **no credential is attached** — the bearer token is
+  still added only to our own API origin (CON-004). The CSP allows exactly those hosts.
+* A tile request discloses the viewport to the provider. The **Offline** basemap restores the
+  zero-external-request behaviour, and the map falls back to it automatically (with a notice) when
+  imagery cannot be reached. Imagery is context; every evidence layer still comes from the API.
+* MapLibre GL was kept over Leaflet: WebGL rendering, globe projection, and 2,200 lines of working
+  overlay code. Attribution follows the active basemap.
+

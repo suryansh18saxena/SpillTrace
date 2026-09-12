@@ -47,6 +47,9 @@ class Worker:
         recovered = await self.queue.recover_orphans(self.worker_id)
         if recovered:
             log.info("worker_recovered_orphans", count=recovered)
+        reconciled = await self._reconcile_queued()
+        if reconciled:
+            log.info("worker_reconciled_queued", count=reconciled)
 
         reaper = asyncio.create_task(self._reaper_loop())
         try:
@@ -236,6 +239,29 @@ class Worker:
             )
             if job.status == JobStatus.COMPLETED.value:
                 await self._advance_pipeline(context, job)
+
+    async def _reconcile_queued(self) -> int:
+        """Re-enqueue jobs the database calls QUEUED but Redis has forgotten.
+
+        A retry waits out its backoff inside the worker process, so a restart during that
+        sleep leaves the row QUEUED with nothing in the list to claim — the job would wait
+        forever and the case would sit at RUNNING.  Reconciling at startup makes a worker
+        restart safe at any moment.
+        """
+        from sqlalchemy import select
+
+        in_redis = await self.queue.queued_ids()
+        count = 0
+        async with session_scope() as session:
+            rows = (
+                await session.execute(select(Job).where(Job.status == JobStatus.QUEUED.value))
+            ).scalars()
+            for job in rows:
+                if str(job.id) in in_redis:
+                    continue
+                await self.queue.enqueue(job.id, priority=job.priority)
+                count += 1
+        return count
 
     async def _fail_or_retry(
         self, repo: JobRepository, job: Job, claimed: QueuedJob, *, code: str, message: str

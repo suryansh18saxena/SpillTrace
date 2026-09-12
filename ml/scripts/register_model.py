@@ -78,7 +78,12 @@ async def register(
     data_config = config.get("data") or {}
 
     notes = []
-    if metrics:
+    if metrics and "validation" in metrics and not metrics.get("test"):
+        notes.append(
+            "Metrics are VALIDATION-split numbers from the training run (no independent "
+            "test split was evaluated); treat them as an upper bound."
+        )
+    elif metrics:
         notes.append("Metrics were measured by ml/src/train.py on the split named in the manifest.")
     else:
         notes.append(
@@ -94,6 +99,9 @@ async def register(
         "Public SAR oil-spill benchmarks are overwhelmingly European waters; performance "
         "elsewhere is documented to degrade (AD-13)."
     )
+    for note in manifest.get("notes") or []:
+        if isinstance(note, str) and note not in notes:
+            notes.append(note)
 
     async with session_scope() as session:
         existing = (

@@ -7,7 +7,9 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Spinner } from '@/components/ui/Spinner';
 import { cx } from '@/lib/cx';
 import type { BBox } from '@/lib/geo';
-import { cssVar, useMap } from './useMap';
+import { BasemapControl } from './BasemapControl';
+import type { BasemapId } from '@/lib/map/basemaps';
+import { cssVar, prefersReducedMotion, useMap } from './useMap';
 import styles from './map.module.css';
 
 export type MapLayerKind = 'polygon' | 'line' | 'point' | 'raster';
@@ -132,7 +134,7 @@ function applyLayer(map: MapLibreMap, layer: MapDataLayer): void {
         id: layerId,
         type: 'raster',
         source: sourceId,
-        paint: { 'raster-opacity': opacity },
+        paint: { 'raster-opacity': opacity, 'raster-resampling': 'linear' },
       });
     }
     map.setLayoutProperty(layerId, 'visibility', visibility);
@@ -272,6 +274,18 @@ export interface MapViewProps {
   describeFeature?: (layerId: string, properties: Record<string, unknown>) => string | null;
   className?: string;
   style?: React.CSSProperties;
+  /** Initial basemap (defaults to the analyst's saved choice, then Satellite). */
+  basemap?: BasemapId;
+  /** Show the basemap switcher. Default on for interactive maps. */
+  basemapControl?: boolean;
+  /** Offer the globe projection toggle in the switcher. */
+  globeToggle?: boolean;
+  /** Start in globe projection. */
+  globe?: boolean;
+  /** Rotate the globe slowly until the user interacts (reduced-motion safe). */
+  autoRotate?: boolean;
+  /** Tilt the camera when flying to `fitTo`, for a more cinematic reveal. */
+  cinematic?: boolean;
 }
 
 /**
@@ -296,8 +310,35 @@ export function MapView({
   describeFeature,
   className,
   style,
+  basemap: initialBasemap,
+  basemapControl = interactive,
+  globeToggle = false,
+  globe: initialGlobe = false,
+  autoRotate = false,
+  cinematic = true,
 }: MapViewProps) {
-  const { containerRef, map, status, error, themeVersion, retry } = useMap({ interactive, label });
+  const {
+    containerRef,
+    map,
+    status,
+    error,
+    themeVersion,
+    theme,
+    retry,
+    basemap,
+    setBasemap,
+    labels,
+    setLabels,
+    globe,
+    setGlobe,
+    fallbackNotice,
+  } = useMap({
+    interactive,
+    label,
+    basemap: initialBasemap,
+    globe: initialGlobe,
+    autoRotate,
+  });
   const readoutRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const previousIds = useRef<Map<string, MapLayerKind>>(new Map());
@@ -349,14 +390,21 @@ export function MapView({
 
   useEffect(() => {
     if (!map || status !== 'ready' || !fitTo) return;
+    const reduced = prefersReducedMotion();
     map.fitBounds(
       [
         [fitTo[0], fitTo[1]],
         [fitTo[2], fitTo[3]],
       ],
-      { padding: 64, duration: 600, maxZoom: 12 },
+      {
+        padding: 64,
+        maxZoom: 12,
+        duration: reduced ? 0 : cinematic ? 1600 : 600,
+        essential: true,
+        ...(cinematic && !reduced ? { pitch: 32, bearing: -8, curve: 1.3 } : {}),
+      },
     );
-  }, [map, status, fitTo]);
+  }, [map, status, fitTo, cinematic]);
 
   // Coordinate readout and hover tooltip, written straight to the DOM: at 60
   // pointer events a second, routing this through React state would re-render
@@ -445,6 +493,17 @@ export function MapView({
         />
 
         {badges ? <div className={styles.mapBadges}>{badges}</div> : null}
+        {basemapControl && status === 'ready' ? (
+          <BasemapControl
+            basemap={basemap}
+            onBasemapChange={setBasemap}
+            labels={labels}
+            onLabelsChange={setLabels}
+            theme={theme}
+            fallbackNotice={fallbackNotice}
+            {...(globeToggle ? { globe, onGlobeChange: setGlobe } : {})}
+          />
+        ) : null}
         {hint ? <p className={styles.mapHint}>{hint}</p> : null}
         {overlay ? <div className={styles.mapOverlayBar}>{overlay}</div> : null}
 

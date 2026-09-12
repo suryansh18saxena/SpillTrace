@@ -116,6 +116,11 @@ services:
       context: .
       dockerfile: infra/Dockerfile.backend
       target: runtime
+      args:
+        # Set INSTALL_ML=true in .env so `make up` (which builds) keeps PyTorch in the
+        # image; without it a plain `up --build` would silently drop torch again.
+        INSTALL_ML: ${INSTALL_ML:-false}
+        INSTALL_PROVIDERS: ${INSTALL_PROVIDERS:-false}
     environment:
       <<: *backend-env
       SPILLTRACE_ROLE: api
@@ -144,6 +149,11 @@ services:
       context: .
       dockerfile: infra/Dockerfile.backend
       target: runtime
+      args:
+        # Set INSTALL_ML=true in .env so `make up` (which builds) keeps PyTorch in the
+        # image; without it a plain `up --build` would silently drop torch again.
+        INSTALL_ML: ${INSTALL_ML:-false}
+        INSTALL_PROVIDERS: ${INSTALL_PROVIDERS:-false}
     command: ["python", "-m", "spilltrace.worker"]
     environment:
       <<: *backend-env
@@ -167,6 +177,11 @@ services:
       context: .
       dockerfile: infra/Dockerfile.backend
       target: runtime
+      args:
+        # Set INSTALL_ML=true in .env so `make up` (which builds) keeps PyTorch in the
+        # image; without it a plain `up --build` would silently drop torch again.
+        INSTALL_ML: ${INSTALL_ML:-false}
+        INSTALL_PROVIDERS: ${INSTALL_PROVIDERS:-false}
     command: ["python", "-m", "spilltrace.worker.ais_ingestor"]
     environment:
       <<: *backend-env

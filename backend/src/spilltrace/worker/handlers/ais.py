@@ -266,10 +266,19 @@ async def ingest_ais(ctx: JobContext) -> dict[str, Any]:
     await ctx.progress(0.1, f"requesting AIS from {provider.name}")
     try:
         messages = await provider.historical(bbox=bbox, start=case.start_time, end=case.end_time)
-    except ProviderError:
-        # A live stream genuinely cannot answer a question about the past. Surfacing
-        # that as a provider failure is honest; silently returning nothing would look
-        # identical to "no vessels were there", which is a different claim entirely.
+    except ProviderError as exc:
+        # A live stream genuinely cannot answer a question about the past.  What it
+        # *can* do is have been listening: the ais-ingestor stores every message it
+        # receives, so if the case window is covered by stored positions the later
+        # stages can proceed on those.  Either way the situation is stated, never
+        # disguised as "no vessels were there".
+        stored = await _stored_positions_in_window(ctx, bbox, case.start_time, case.end_time)
+        if stored:
+            raise NoDataError(
+                f"{provider.name} is a live feed and cannot return past positions "
+                f"({exc.message}). {stored} position(s) already stored for this area "
+                "and window will be used by the following stages."
+            ) from exc
         raise
 
     if not messages:
@@ -290,6 +299,24 @@ async def ingest_ais(ctx: JobContext) -> dict[str, Any]:
         **counts,
         "notice": AIS_COVERAGE_DISCLAIMER,
     }
+
+
+async def _stored_positions_in_window(
+    ctx: JobContext,
+    bbox: tuple[float, float, float, float],
+    start: Any,
+    end: Any,
+) -> int:
+    """How many AIS positions the database already holds for this box and window."""
+    from sqlalchemy import func
+
+    envelope = func.ST_MakeEnvelope(bbox[0], bbox[1], bbox[2], bbox[3], 4326)
+    stmt = select(func.count(AISPosition.id)).where(
+        AISPosition.timestamp >= start,
+        AISPosition.timestamp <= end,
+        func.ST_Intersects(AISPosition.position, envelope),
+    )
+    return int((await ctx.session.execute(stmt)).scalar_one() or 0)
 
 
 async def _persist_messages(ctx: JobContext, messages: list[AISMessage]) -> dict[str, Any]:

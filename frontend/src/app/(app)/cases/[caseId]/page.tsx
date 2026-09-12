@@ -565,6 +565,7 @@ export default function InvestigationPage() {
                       key: 'window',
                       term: 'Time window',
                       mono: true,
+                      wide: true,
                       value: formatTimeRange(caseData.start_time, caseData.end_time),
                     },
                     {

@@ -2,9 +2,9 @@
  * Browser-visible configuration.
  *
  * Everything in here is inlined into the client bundle at build time, so it must
- * never contain a credential (CON-004). The only origin the browser is allowed
- * to call is our own API; the basemap is served from `public/map-style.json` and
- * every third-party provider key stays server-side (AD-5).
+ * never contain a credential (CON-004). The browser calls our own API and the
+ * public, unauthenticated basemap tile services listed in `lib/map/basemaps.ts`;
+ * every third-party provider key stays server-side (AD-5, amended 2026-09-12).
  */
 
 function trimTrailingSlash(value: string): string {
@@ -23,7 +23,11 @@ export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? 'SPILLTRACE';
 
 export const APP_TAGLINE = 'Maritime oil-spill investigative attribution';
 
-/** The self-hosted, zero-external-request MapLibre style (see public/map-style.json). */
+/**
+ * The self-hosted offline basemap (graticule only, see public/map-style.json).
+ * `lib/map/basemaps.ts` composes the public imagery basemaps on top of it at
+ * runtime; choosing "Offline" in the map restores zero-external-request mode.
+ */
 export const MAP_STYLE_URL = '/map-style.json';
 
 /** Default map view: the Arabian Sea / Gulf of Kutch area used by the demo scenario. */

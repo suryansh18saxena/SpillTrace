@@ -212,9 +212,16 @@ async def detect_slicks(ctx: JobContext) -> dict[str, Any]:
     bounds = _as_bounds(raster_meta["bounds"])
     height, width = int(inputs.shape[1]), int(inputs.shape[2])
 
-    tile_size = int(ctx.payload.get("tile_size") or DEFAULT_TILE_SIZE)
-    stride = int(ctx.payload.get("tile_stride") or DEFAULT_STRIDE)
     mask_config = _mask_config(ctx.payload)
+
+    checkpoint = await _resolve_checkpoint(ctx, store)
+    model = build_segmentation_model(ctx.settings, checkpoint=checkpoint)
+    describe = model.describe()
+
+    # A trained model is tiled at the patch size it was trained on (the registry row's
+    # ``input_size``; 256 px for the ResNet-34 checkpoint) with a 3/4 stride, unless the
+    # job says otherwise.  The analytical detector keeps the 128/96 default.
+    tile_size, stride = _tile_geometry(ctx.payload, describe)
 
     await ctx.progress(0.1, "tiling the scene")
     tiles, windows = tile_array(
@@ -223,10 +230,6 @@ async def detect_slicks(ctx: JobContext) -> dict[str, Any]:
         stride=stride,
         transform=tuple(float(v) for v in raster_meta["transform"]),  # type: ignore[arg-type]
     )
-
-    checkpoint = await _resolve_checkpoint(ctx, store)
-    model = build_segmentation_model(ctx.settings, checkpoint=checkpoint)
-    describe = model.describe()
 
     await ctx.progress(0.2, f"running {model.name} over {len(windows)} tiles")
     predictions: list[np.ndarray] = []
@@ -392,6 +395,22 @@ async def detect_slicks(ctx: JobContext) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- helpers
+
+
+def _tile_geometry(payload: dict[str, Any], describe: dict[str, Any]) -> tuple[int, int]:
+    """Tile size / stride for this run: payload override, else the model's patch size."""
+    model_size = int(describe.get("input_size") or 0) if describe.get("trained") else 0
+    default_size = model_size if model_size >= 32 else DEFAULT_TILE_SIZE
+    tile_size = int(payload.get("tile_size") or default_size)
+    if payload.get("tile_stride"):
+        stride = int(payload["tile_stride"])
+    elif tile_size == DEFAULT_TILE_SIZE:
+        stride = DEFAULT_STRIDE
+    else:
+        stride = max(1, (tile_size * 3) // 4)
+    return tile_size, min(stride, tile_size)
+
+
 def _percentiles(payload: dict[str, Any]) -> tuple[float, float]:
     raw = payload.get("clip_percentiles")
     if isinstance(raw, list | tuple) and len(raw) == 2:

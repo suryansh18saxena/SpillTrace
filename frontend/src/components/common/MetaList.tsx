@@ -12,6 +12,8 @@ export interface MetaEntry {
   mono?: boolean;
   /** One line of context under the value. */
   hint?: ReactNode;
+  /** Span the whole row — for long values such as a time window. */
+  wide?: boolean;
 }
 
 export interface MetaListProps {
@@ -35,7 +37,7 @@ export function MetaList({ entries, dense = false, className }: MetaListProps) {
   return (
     <dl className={cx(styles.metaList, dense && styles.metaListDense, className)}>
       {rows.map((row) => (
-        <div key={row.key} className={styles.metaEntry}>
+        <div key={row.key} className={cx(styles.metaEntry, row.wide && styles.metaEntryWide)}>
           <dt className={styles.metaTerm}>{row.term}</dt>
           <dd className={cx(styles.metaDefinition, row.mono && styles.metaDefinitionMono)}>
             {row.value ?? EMPTY_VALUE}

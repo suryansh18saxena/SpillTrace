@@ -46,3 +46,8 @@ data/artifacts/*
 .idea/
 .vscode/
 *.swp
+
+# ---- trained checkpoints (never commit; 98 MB+) ----
+*.pt
+ml/runs/
+/best.pt/

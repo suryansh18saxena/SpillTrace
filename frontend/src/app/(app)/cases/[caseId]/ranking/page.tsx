@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ContributionBars, ScoreMeter, SegmentBar, StatTile } from '@/components/charts';
 import { CaseSubNav } from '@/components/common/CaseSubNav';
 import { MetaList } from '@/components/common/MetaList';
 import { Notice } from '@/components/common/Notice';
@@ -9,7 +11,9 @@ import { ProvenanceBadge } from '@/components/common/ProvenanceBadge';
 import { ConfidenceBadge } from '@/components/attribution/ConfidenceBadge';
 import { Disclaimer } from '@/components/attribution/Disclaimer';
 import { FactorTable } from '@/components/attribution/FactorTable';
+import { PlainLanguageSummary } from '@/components/attribution/PlainLanguageSummary';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Reveal } from '@/components/motion/Reveal';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -17,8 +21,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { Table, type Column } from '@/components/ui/Table';
-import { IconShip, IconTarget } from '@/components/ui/Icons';
-import { useAttributions, useCase } from '@/lib/api/hooks';
+import { IconHistory, IconMap, IconShip, IconTarget } from '@/components/ui/Icons';
+import { useCaseUniverse } from '@/lib/api/aggregate';
+import { useAttribution, useAttributions, useCase } from '@/lib/api/hooks';
 import type { Attribution } from '@/lib/api/types';
 import {
   EMPTY_VALUE,
@@ -27,9 +32,63 @@ import {
   formatMmsi,
   formatScore,
 } from '@/lib/format';
+import { confidenceCounts, vesselAppearances } from '@/lib/insights';
+import { gsap, prefersReducedMotion } from '@/lib/motion/gsap';
 import layout from '@/components/layout/layout.module.css';
 import styles from '@/styles/pages.module.css';
 import attributionStyles from '@/components/attribution/attribution.module.css';
+import local from './ranking.module.css';
+
+/**
+ * Where else the analyst has seen this vessel. History, stated as history:
+ * a vessel on a regular route through a busy lane reappears simply because it
+ * is often there, so this is context for enquiry, never a pattern of guilt.
+ */
+function CrossCaseHistory({ mmsi, caseId }: { mmsi: number; caseId: string }) {
+  const universe = useCaseUniverse({ vessels: true, attributions: true });
+  const entry = vesselAppearances(universe.bundles).find((item) => item.mmsi === mmsi);
+  const others = (entry?.observedIn ?? []).filter((c) => c.caseId !== caseId);
+
+  return (
+    <div className={local.block}>
+      <p className={local.blockTitle}>
+        <IconHistory size={14} /> Seen in your other cases
+      </p>
+      {universe.isPending || universe.isLoadingDetails ? (
+        <p className={attributionStyles.footnote}>Checking your other cases…</p>
+      ) : others.length === 0 ? (
+        <p className={attributionStyles.footnote}>
+          Not observed in any of your other {Math.max(0, universe.cases.length - 1)} cases.
+        </p>
+      ) : (
+        <div className={local.history}>
+          {others.map((ref) => {
+            const ranked = entry?.candidateIn.find((c) => c.caseId === ref.caseId);
+            return (
+              <div key={ref.caseId} className={local.historyRow}>
+                <Link href={`/cases/${ref.caseId}/ranking`}>{ref.caseTitle}</Link>
+                <span className={local.historyMeta}>
+                  {ranked ? (
+                    <>
+                      rank {ranked.rank} · {formatScore(ranked.score)}
+                      <ConfidenceBadge label={ranked.band} />
+                    </>
+                  ) : (
+                    'observed, not ranked'
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className={attributionStyles.footnote}>
+        Appearing in several cases is history, not evidence of wrongdoing — a vessel on a regular
+        route through a busy lane will reappear simply because it is often there.
+      </p>
+    </div>
+  );
+}
 
 /** UI-007 — the ranked candidate vessels and the evidence behind each rank. */
 export default function VesselRankingPage() {
@@ -39,10 +98,33 @@ export default function VesselRankingPage() {
   const caseQuery = useCase(caseId);
   const attributionsQuery = useAttributions(caseId);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const evidenceRef = useRef<HTMLDivElement | null>(null);
 
   const attributions = useMemo(() => attributionsQuery.data?.items ?? [], [attributionsQuery.data]);
   const listDisclaimer = attributionsQuery.data?.disclaimer ?? null;
+
+  // The discrimination check's verdict lives on each attribution's detail. It
+  // is a statement about the whole field ("capped … for every candidate"), so
+  // it is read once, from the top candidate, and shown verbatim above the list.
+  const topDetail = useAttribution(attributions[0]?.id);
+  const discriminationNote = topDetail.data?.evidence?.['discrimination_note'];
   const scoringVersion = attributions[0]?.scoring_version;
+  const bands = confidenceCounts(attributions);
+  const scores = attributions.map((a) => a.final_score);
+
+  // Bring the evidence panel into view when a row is expanded.
+  useEffect(() => {
+    if (!expanded || !evidenceRef.current) return;
+    const node = evidenceRef.current;
+    node.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    if (!prefersReducedMotion()) {
+      gsap.fromTo(
+        node,
+        { autoAlpha: 0, y: 16 },
+        { autoAlpha: 1, y: 0, duration: 0.7, ease: 'expo.out' },
+      );
+    }
+  }, [expanded]);
 
   const columns: Column<Attribution>[] = [
     {
@@ -50,23 +132,21 @@ export default function VesselRankingPage() {
       header: 'Rank',
       numeric: true,
       mono: true,
-      width: '4.5rem',
+      width: '4rem',
       render: (row) => row.rank,
     },
     {
       key: 'vessel',
       header: 'Candidate vessel',
       render: (row) => (
-        <span className={styles.cellPrimary}>
-          <LinkButton
-            href={`/vessels/${row.vessel.id}?case=${caseId}`}
-            variant="ghost"
-            size="sm"
-            className={styles.cellLink}
-          >
+        <span className={local.vesselCell}>
+          <Link href={`/vessels/${row.vessel.id}?case=${caseId}`} className={local.vesselLink}>
             {row.vessel.name?.trim() || 'Unnamed vessel'}
-          </LinkButton>
-          <span className={styles.cellSub}>MMSI {formatMmsi(row.vessel.mmsi)}</span>
+          </Link>
+          <span className={local.vesselSub}>
+            MMSI {formatMmsi(row.vessel.mmsi)}
+            <ProvenanceBadge provenance={row.data_provenance} />
+          </span>
         </span>
       ),
     },
@@ -74,9 +154,15 @@ export default function VesselRankingPage() {
       key: 'score',
       header: 'Investigative score',
       numeric: true,
-      mono: true,
-      width: '10rem',
-      render: (row) => formatScore(row.final_score),
+      width: '9rem',
+      render: (row) => (
+        <span className={local.scoreCell}>
+          <span className={local.scoreNumber}>{formatScore(row.final_score)}</span>
+          <span className={local.scoreBar} aria-hidden="true">
+            <span style={{ width: `${Math.max(0, Math.min(1, row.final_score)) * 100}%` }} />
+          </span>
+        </span>
+      ),
     },
     {
       key: 'confidence',
@@ -89,34 +175,29 @@ export default function VesselRankingPage() {
       header: 'Closest approach',
       numeric: true,
       mono: true,
-      width: '9rem',
-      render: (row) =>
-        row.closest_approach_km === null || row.closest_approach_km === undefined
-          ? EMPTY_VALUE
-          : formatDistanceKm(row.closest_approach_km),
-    },
-    {
-      key: 'when',
-      header: 'At',
-      mono: true,
-      width: '11rem',
-      render: (row) => formatDateTimeCompact(row.closest_approach_time ?? null),
-    },
-    {
-      key: 'provenance',
-      header: 'Data',
-      width: '7rem',
-      render: (row) => <ProvenanceBadge provenance={row.data_provenance} />,
+      width: '10rem',
+      render: (row) => (
+        <>
+          {row.closest_approach_km === null || row.closest_approach_km === undefined
+            ? EMPTY_VALUE
+            : formatDistanceKm(row.closest_approach_km)}
+          {row.closest_approach_time ? (
+            <span className={local.approachSub}>
+              {formatDateTimeCompact(row.closest_approach_time)}
+            </span>
+          ) : null}
+        </>
+      ),
     },
     {
       key: 'expand',
       header: 'Evidence',
       headerHidden: true,
-      width: '9rem',
+      width: '8.5rem',
       render: (row) => (
         <Button
           size="sm"
-          variant="ghost"
+          variant={expanded === row.id ? 'secondary' : 'ghost'}
           aria-expanded={expanded === row.id}
           onClick={() => setExpanded((current) => (current === row.id ? null : row.id))}
         >
@@ -127,10 +208,12 @@ export default function VesselRankingPage() {
   ];
 
   if (!caseId) return null;
+  const selected = attributions.find((item) => item.id === expanded);
 
   return (
     <main className={layout.content} id="main-content">
       <PageHeader
+        eyebrow={caseQuery.data?.case_ref ? `Case ${caseQuery.data.case_ref}` : 'Case'}
         title="Candidate vessel ranking"
         subtitle={
           caseQuery.data
@@ -138,7 +221,12 @@ export default function VesselRankingPage() {
             : 'Vessels ranked for further investigation. Ranking prioritises enquiry; it never establishes responsibility.'
         }
         actions={
-          <LinkButton href={`/cases/${caseId}`} variant="secondary" size="md">
+          <LinkButton
+            href={`/cases/${caseId}`}
+            variant="secondary"
+            size="md"
+            leadingIcon={<IconMap size={15} />}
+          >
             Back to the map
           </LinkButton>
         }
@@ -159,13 +247,52 @@ export default function VesselRankingPage() {
           label="Fewer candidates than usual"
           tone="info"
         />
+        <Notice
+          text={typeof discriminationNote === 'string' ? discriminationNote : null}
+          label="Why the evidence bands are capped"
+          tone="info"
+        />
+
+        {attributions.length > 0 ? (
+          <Reveal className={local.summary} stagger={0.07}>
+            <StatTile
+              label="Candidates ranked"
+              value={attributions.length}
+              icon={<IconTarget size={16} />}
+              caption="Never padded to reach a target count."
+            />
+            <StatTile
+              label="Highest investigative score"
+              value={Math.max(...scores)}
+              decimals={2}
+              icon={<IconShip size={16} />}
+              caption={`Range ${formatScore(Math.min(...scores))}–${formatScore(Math.max(...scores))} on a 0–1 scale. Not a probability.`}
+            />
+            <div className={local.bandCard}>
+              <p className={local.bandLabel}>Evidence-strength bands</p>
+              <SegmentBar
+                label="Candidates by evidence-strength band"
+                segments={[
+                  { key: 'LOW', label: 'Low', value: bands.LOW, color: 'var(--confidence-1)' },
+                  {
+                    key: 'MODERATE',
+                    label: 'Moderate',
+                    value: bands.MODERATE,
+                    color: 'var(--confidence-2)',
+                  },
+                  { key: 'HIGH', label: 'High', value: bands.HIGH, color: 'var(--confidence-3)' },
+                ]}
+              />
+            </div>
+          </Reveal>
+        ) : null}
 
         <Card
           title="Ranked candidates"
           description={
             scoringVersion
-              ? `Scored with ${scoringVersion}. Every rank is auditable: expand a row to see all six weighted factors.`
-              : 'Every rank is auditable: expand a row to see all six weighted factors.'
+              ? `Scored with ${scoringVersion}. Every rank is auditable: open a row to see all six weighted factors.`
+              : 'Every rank is auditable: open a row to see all six weighted factors.'
           }
           actions={
             attributions.length > 0 ? (
@@ -209,17 +336,14 @@ export default function VesselRankingPage() {
           </p>
         ) : null}
 
-        {attributions.map((attribution) => {
-          if (expanded !== attribution.id) return null;
-          const vesselName = attribution.vessel.name?.trim() || 'Unnamed vessel';
-          return (
+        {selected ? (
+          <div ref={evidenceRef} className={local.evidence}>
             <Card
-              key={attribution.id}
-              title={`Evidence for rank ${attribution.rank} — ${vesselName}`}
+              title={`Evidence for rank ${selected.rank} — ${selected.vessel.name?.trim() || 'Unnamed vessel'}`}
               description="All six factors, with the weight applied, the normalised score and the resulting contribution to the combined score."
               actions={
                 <LinkButton
-                  href={`/vessels/${attribution.vessel.id}?case=${caseId}`}
+                  href={`/vessels/${selected.vessel.id}?case=${caseId}`}
                   size="sm"
                   variant="secondary"
                   leadingIcon={<IconShip size={14} />}
@@ -228,61 +352,80 @@ export default function VesselRankingPage() {
                 </LinkButton>
               }
             >
-              <MetaList
-                dense
-                entries={[
-                  {
-                    key: 'score',
-                    term: 'Investigative score',
-                    mono: true,
-                    value: formatScore(attribution.final_score),
-                    hint: 'Sum of the six contributions below.',
-                  },
-                  {
-                    key: 'confidence',
-                    term: 'Evidence strength',
-                    value: <ConfidenceBadge label={attribution.confidence_label} />,
-                    hint: 'How strong the supporting evidence is — not a likelihood of responsibility.',
-                  },
-                  {
-                    key: 'version',
-                    term: 'Scoring version',
-                    mono: true,
-                    value: attribution.scoring_version,
-                  },
-                  {
-                    key: 'mmsi',
-                    term: 'MMSI',
-                    mono: true,
-                    value: formatMmsi(attribution.vessel.mmsi),
-                  },
-                ]}
-              />
+              <div className={local.evidenceGrid}>
+                <div className={local.block}>
+                  <p className={local.blockTitle}>Where the score sits</p>
+                  <ScoreMeter value={selected.final_score} band={selected.confidence_label} />
+                  <div className={local.bandLine}>
+                    <ConfidenceBadge label={selected.confidence_label} />
+                    <span>
+                      How strong the supporting evidence is — not a likelihood of responsibility.
+                    </span>
+                  </div>
+                  <MetaList
+                    dense
+                    entries={[
+                      {
+                        key: 'version',
+                        term: 'Scoring version',
+                        mono: true,
+                        value: selected.scoring_version,
+                      },
+                      {
+                        key: 'mmsi',
+                        term: 'MMSI',
+                        mono: true,
+                        value: formatMmsi(selected.vessel.mmsi),
+                      },
+                    ]}
+                  />
+                  <PlainLanguageSummary attribution={selected} all={attributions} />
+                </div>
 
-              <div style={{ marginTop: 'var(--space-3)' }}>
-                <FactorTable factors={attribution.factors} candidateLabel={vesselName} />
+                <div className={local.block}>
+                  <p className={local.blockTitle}>How the score was built</p>
+                  <ContributionBars
+                    factors={selected.factors}
+                    candidateLabel={selected.vessel.name?.trim() || 'Unnamed vessel'}
+                  />
+                  <p className={attributionStyles.footnote}>
+                    Pale track = the factor’s weight (the most it can contribute); solid = what it
+                    actually contributed. The contributions sum to the investigative score.
+                  </p>
+                </div>
               </div>
 
-              <div className={attributionStyles.weightsRow} style={{ marginTop: 'var(--space-3)' }}>
-                {Object.entries(attribution.weights).map(([key, weight]) => (
+              <div className={local.divider} />
+
+              <FactorTable
+                factors={selected.factors}
+                candidateLabel={selected.vessel.name?.trim() || 'Unnamed vessel'}
+              />
+
+              <div className={attributionStyles.weightsRow} style={{ marginTop: 'var(--space-4)' }}>
+                {Object.entries(selected.weights).map(([key, weight]) => (
                   <span key={key}>
                     {key}={formatScore(weight)}
                   </span>
                 ))}
               </div>
 
-              <p className={attributionStyles.footnote} style={{ marginTop: 'var(--space-2)' }}>
+              <p className={attributionStyles.footnote} style={{ marginTop: 'var(--space-3)' }}>
                 Weights are versioned engineering defaults for this prototype, not scientifically
                 validated legal probabilities; they must be calibrated on labelled cases before any
                 score is treated as a measured likelihood.
               </p>
 
-              <div style={{ marginTop: 'var(--space-3)' }}>
-                <Disclaimer text={attribution.disclaimer} label="Applies to this candidate" />
+              <div className={local.divider} />
+
+              <CrossCaseHistory mmsi={selected.vessel.mmsi} caseId={caseId} />
+
+              <div style={{ marginTop: 'var(--space-5)' }}>
+                <Disclaimer text={selected.disclaimer} label="Applies to this candidate" />
               </div>
             </Card>
-          );
-        })}
+          </div>
+        ) : null}
       </div>
     </main>
   );

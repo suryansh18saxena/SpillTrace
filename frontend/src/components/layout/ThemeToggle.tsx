@@ -1,32 +1,39 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useSyncExternalStore, type MouseEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { IconMoon, IconSun } from '@/components/ui/Icons';
-import { applyTheme, readStoredTheme, storeTheme, systemTheme, type Theme } from '@/lib/theme';
+import type { Theme } from '@/lib/theme';
+import { toggleThemeWithTransition } from '@/lib/themeTransition';
+
+function subscribe(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  });
+  return () => observer.disconnect();
+}
+
+function getSnapshot(): Theme {
+  return document.documentElement.dataset['theme'] === 'light' ? 'light' : 'dark';
+}
 
 /**
  * Dark/light switch.
  *
- * Renders in a deliberately neutral state until mounted: the server cannot know
- * the stored preference, so committing to an icon before hydration would produce
- * a mismatch and a visible flicker.
+ * It reads the theme straight from the `data-theme` attribute on <html>, so it
+ * stays correct when something else (the command palette) changes the theme.
+ * On the server the theme is unknown, so the button renders neutral and
+ * disabled until hydration rather than committing to the wrong icon.
  */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme | null>(null);
+  const theme = useSyncExternalStore<Theme | null>(subscribe, getSnapshot, () => null);
 
-  useEffect(() => {
-    setTheme(readStoredTheme() ?? systemTheme());
-  }, []);
-
-  const toggle = useCallback(() => {
-    setTheme((current) => {
-      const next: Theme = current === 'light' ? 'dark' : 'light';
-      applyTheme(next);
-      storeTheme(next);
-      return next;
-    });
-  }, []);
+  const onClick = (event: MouseEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    toggleThemeWithTransition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+  };
 
   const nextLabel = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
 
@@ -35,7 +42,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="sm"
       iconOnly
-      onClick={toggle}
+      onClick={onClick}
       aria-label={nextLabel}
       title={nextLabel}
       disabled={theme === null}

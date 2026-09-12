@@ -149,6 +149,17 @@ export function CandidateRanking({
                   <IconChevronRight size={16} />
                 </span>
               </span>
+              {/* The score, built up factor by factor on a 0–1 track. Decorative:
+                  every contribution is stated in words in the expanded body. */}
+              <span className={styles.contribStrip} aria-hidden="true">
+                {attribution.factors.map((factor) => (
+                  <span
+                    key={factor.key}
+                    className={styles.contribSegment}
+                    style={{ width: `${Math.max(0, factor.contribution) * 100}%` }}
+                  />
+                ))}
+              </span>
             </summary>
 
             <div className={styles.candidateBody}>

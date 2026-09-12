@@ -120,13 +120,27 @@ def array_to_png(
                 [1.0, 245, 158, 11],
             ]
         )
+    elif colormap == "confidence":
+        # The design system's validated one-hue ordinal ramp (warm grey → amber →
+        # gold, `--confidence-1/2/3`), so the map reads like every other score.
+        stops = np.array(
+            [
+                [0.0, 114, 108, 97],
+                [0.5, 191, 138, 51],
+                [1.0, 242, 194, 76],
+            ]
+        )
     else:  # greyscale
         stops = np.array([[0.0, 0, 0, 0], [1.0, 255, 255, 255]])
 
     for channel in range(3):
         rgba[channel] = np.interp(normalised, stops[:, 0], stops[:, channel + 1]).astype(np.uint8)
     # Fade out low probabilities rather than painting the whole scene.
-    rgba[3] = (np.clip(normalised * 2.2, 0.0, 1.0) * 235).astype(np.uint8)
+    if colormap == "confidence":
+        alpha = np.clip((normalised - 0.05) / 0.55, 0.0, 1.0)
+        rgba[3] = (alpha * 220).astype(np.uint8)
+    else:
+        rgba[3] = (np.clip(normalised * 2.2, 0.0, 1.0) * 235).astype(np.uint8)
 
     # A PNG carries no CRS by design; rasterio warns about that, which is noise here.
     with warnings.catch_warnings():

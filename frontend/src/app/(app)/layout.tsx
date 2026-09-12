@@ -2,9 +2,11 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { RadarMark } from '@/components/brand/RadarMark';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Spinner } from '@/components/ui/Spinner';
+import { AppBackdrop } from '@/components/shell/AppBackdrop';
+import { OnboardingTour } from '@/components/shell/OnboardingTour';
 import { useLogout, useMe } from '@/lib/api/hooks';
 import { onUnauthenticated } from '@/lib/api/client';
 import {
@@ -14,6 +16,12 @@ import {
   subscribeToSession,
   type SessionState,
 } from '@/lib/auth/session';
+import { cx } from '@/lib/cx';
+import {
+  PREF_SIDEBAR_COLLAPSED,
+  readBooleanPreference,
+  writeBooleanPreference,
+} from '@/lib/preferences';
 import styles from '@/components/layout/layout.module.css';
 
 const SIDEBAR_ID = 'app-sidebar';
@@ -31,8 +39,9 @@ const SERVER_SNAPSHOT: SessionState = { status: 'unknown', user: null };
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname() ?? '/cases';
+  const pathname = usePathname() ?? '/dashboard';
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const session = useSyncExternalStore(
     subscribeToSession,
@@ -43,6 +52,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void bootstrapSession();
+    setCollapsed(readBooleanPreference(PREF_SIDEBAR_COLLAPSED));
   }, []);
 
   // A rejected request that survived the refresh means the session is really
@@ -72,19 +82,35 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     });
   }, [logout, router]);
 
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((value) => {
+      writeBooleanPreference(PREF_SIDEBAR_COLLAPSED, !value);
+      return !value;
+    });
+  }, []);
+
   if (session.status !== 'authenticated') {
     return (
       <div className={styles.bootScreen}>
-        <div className={styles.bootInner} aria-busy="true">
-          <Spinner size="md" label={null} />
-          <p>{session.status === 'anonymous' ? 'Redirecting to sign in…' : 'Restoring session…'}</p>
+        <AppBackdrop />
+        <div className={styles.bootInner} aria-busy="true" role="status">
+          <span className={styles.bootMark}>
+            <RadarMark size={56} />
+          </span>
+          <p className={styles.bootTitle}>SPILLTRACE</p>
+          <p>
+            {session.status === 'anonymous'
+              ? 'Redirecting to sign in…'
+              : 'Restoring secure session…'}
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={styles.shell}>
+    <div className={cx(styles.shell, collapsed && styles.shellCollapsed)}>
+      <AppBackdrop />
       {sidebarOpen ? (
         <button
           type="button"
@@ -98,6 +124,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         id={SIDEBAR_ID}
         open={sidebarOpen}
         role={session.user?.role ?? null}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
         onNavigate={() => setSidebarOpen(false)}
       />
 
@@ -112,6 +140,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         />
         {children}
       </div>
+
+      <OnboardingTour />
     </div>
   );
 }

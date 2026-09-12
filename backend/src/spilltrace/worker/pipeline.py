@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from spilltrace.core.enums import PIPELINE_ORDER, CaseStatus, JobStatus, JobType
 from spilltrace.db.models import Case, Job
+from spilltrace.db.provenance import rollup_case_provenance
 from spilltrace.db.repositories.jobs import JobRepository
 from spilltrace.logging import get_logger
 
@@ -121,6 +122,9 @@ async def advance(session: AsyncSession, completed_job: Job) -> list[Job]:
                 case.status = CaseStatus.FAILED.value
             else:
                 case.status = CaseStatus.RUNNING.value
+            # The case's provenance label must describe the evidence it now holds
+            # (CON-009): a "real" investigation fed by fixture scenes is not REAL.
+            await rollup_case_provenance(session, case)
             await session.flush()
     return ready
 

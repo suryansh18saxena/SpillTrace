@@ -105,7 +105,8 @@ export interface SystemProvider {
   mode: DataProvenance;
   configured: boolean;
   /** Credentials this port would need to run in REAL mode. */
-  requires?: string[] | null;
+  /** Env var name(s) a REAL provider needs; the API sends a string like `A/B`, older builds a list. */
+  requires?: string | string[] | null;
 }
 
 export interface ProvidersResponse {
@@ -125,11 +126,17 @@ export interface ModelVersion {
   name: string;
   version: string;
   is_active: boolean;
-  metrics: Record<string, number | string | null>;
+  /**
+   * Loosely typed on purpose: the evaluation script writes nested groups
+   * (`{operating_point: {...}, sweep: [...]}`) as well as flat scalars, so a
+   * consumer must check each value's shape before formatting it.
+   */
+  metrics: Record<string, unknown>;
   framework?: string | null;
   task?: string | null;
   input_channels?: number | null;
-  input_size?: number[] | null;
+  /** Has shipped both as `[128, 128]` and as a bare `128`. */
+  input_size?: number | number[] | null;
   created_at?: IsoDateTime | null;
 }
 
