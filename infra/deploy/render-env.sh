@@ -24,6 +24,7 @@ case "${PUBLIC_URL}" in
   https://*) ENV_MODE=production; SITE_ADDRESS="${PUBLIC_URL#https://}" ;;
   *)         ENV_MODE=staging;    SITE_ADDRESS=":80" ;;
 esac
+REDIRECT_ADDRESS="http://redirect.invalid"
 
 cat <<ENV
 # SPILLTRACE — server environment (generated $(date -u +%FT%TZ) by infra/deploy/render-env.sh)
@@ -32,6 +33,7 @@ cat <<ENV
 # ---- edge -----------------------------------------------------------------
 PUBLIC_URL=${PUBLIC_URL}
 SITE_ADDRESS=${SITE_ADDRESS}
+REDIRECT_ADDRESS=${REDIRECT_ADDRESS}
 # production => Secure refresh cookie, which only works over HTTPS. Plain-HTTP-on-IP
 # deployments must stay 'staging' or nobody can log in.
 SPILLTRACE_ENV=${ENV_MODE}

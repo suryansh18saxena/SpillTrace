@@ -13,7 +13,9 @@ const BASEMAP_HOSTS =
  * client bundle (CON-004 / AD-5): the basemap is self-hosted (public/map-style.json)
  * and every provider key stays server-side.
  */
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+// An empty value means the API is served from the same origin (see
+// `resolveApiBaseUrl` in src/lib/config.ts), which `'self'` already covers.
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000').trim();
 
 /**
  * Content-Security-Policy.

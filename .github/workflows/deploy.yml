@@ -4,8 +4,8 @@ name: Deploy
 # over SSH. Runs on every push to main (docs-only changes excluded) and on demand.
 #
 # Repository secrets:  EC2_HOST  EC2_USER  EC2_SSH_KEY  (see docs/DEPLOYMENT.md §8)
-# Repository variable: PUBLIC_URL   e.g. http://18.212.85.28  — baked into the
-#                      frontend bundle, so changing it needs a rebuild (a push).
+# Repository variable: PUBLIC_URL   (optional) the URL the smoke test calls. The
+#                      frontend is built same-origin, so no URL is baked into it.
 
 on:
   push:
@@ -86,20 +86,16 @@ jobs:
           tags: |
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
-      - name: Resolve public origin
-        id: origin
-        run: |
-          url="${{ vars.PUBLIC_URL }}"
-          if [ -z "$url" ]; then url="http://${{ secrets.EC2_HOST }}"; fi
-          echo "url=${url%/}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/Dockerfile.frontend
           target: runtime
           push: true
+          # Empty = same origin: Caddy serves /api beside the app, so the image is
+          # not tied to an IP, a domain or a scheme, and HTTPS needs no rebuild.
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=${{ steps.origin.outputs.url }}
+            NEXT_PUBLIC_API_BASE_URL=
             NEXT_PUBLIC_APP_NAME=SPILLTRACE
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -144,11 +140,11 @@ jobs:
       - name: Ship deployment bundle
         run: |
           mkdir -p bundle
-          cp infra/deploy/compose.prod.yml infra/deploy/Caddyfile infra/deploy/deploy.sh bundle/
+          cp infra/deploy/compose.prod.yml infra/deploy/Caddyfile infra/deploy/deploy.sh infra/deploy/enable-https.sh bundle/
           cp infra/minio/init-buckets.sh infra/postgres/init.sql bundle/
           cp ml/scripts/register_model.py bundle/register_model.py
           ssh ec2 'mkdir -p /opt/spilltrace/models'
-          scp -q bundle/compose.prod.yml bundle/Caddyfile bundle/deploy.sh bundle/init-buckets.sh bundle/init.sql ec2:/opt/spilltrace/
+          scp -q bundle/compose.prod.yml bundle/Caddyfile bundle/deploy.sh bundle/enable-https.sh bundle/init-buckets.sh bundle/init.sql ec2:/opt/spilltrace/
           scp -q bundle/register_model.py ec2:/opt/spilltrace/models/
 
       - name: Roll forward
@@ -162,6 +158,7 @@ jobs:
         run: |
           url="${{ vars.PUBLIC_URL }}"
           if [ -z "$url" ]; then url="http://${{ secrets.EC2_HOST }}"; fi
-          curl -fsS --retry 5 --retry-delay 5 "${url%/}/health"
+          # -L: once HTTPS is enabled, the IP answers with a redirect to the named site.
+          curl -fsSL --retry 5 --retry-delay 5 "${url%/}/health"
           echo
-          curl -fsS -o /dev/null -w 'frontend: HTTP %{http_code}\n' "${url%/}/"
+          curl -fsSL -o /dev/null -w 'frontend: HTTP %{http_code} at %{url_effective}\n' "${url%/}/"

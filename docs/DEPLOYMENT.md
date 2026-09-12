@@ -200,7 +200,7 @@ and port 443 open).
 | secret | `EC2_HOST` | public IP or DNS name of the instance |
 | secret | `EC2_USER` | `ubuntu` |
 | secret | `EC2_SSH_KEY` | a private key whose public half is in `~ubuntu/.ssh/authorized_keys` (use a dedicated key, not the console `.pem`) |
-| variable | `PUBLIC_URL` | `http://<host>` — must equal the URL people type; baked into the frontend build |
+| variable | `PUBLIC_URL` | optional: the URL the post-deploy smoke test calls (defaults to `http://EC2_HOST`) |
 
 The workflow also uses the job-scoped `GITHUB_TOKEN` to push to GHCR and to let the
 instance pull. Packages are private by default; that is fine because `deploy.sh` logs the
@@ -246,10 +246,38 @@ password in `.env` after the first run has no effect; change it in the UI.
 `spilltrace_app-data`), so a redeploy keeps cases, scenes and the registered model; only
 `docker compose down -v` deletes them. Back up Postgres **and** MinIO together (§5.7).
 
-### 8.6 Known limits of this topology
+### 8.6 HTTPS (Let's Encrypt, automatic)
 
-* Plain HTTP on a bare IP: no TLS, no HSTS, `SPILLTRACE_ENV=staging`. Add a DNS name and
-  re-render `.env` with an `https://` URL to fix all three at once.
+The frontend image is built **same-origin** (`NEXT_PUBLIC_API_BASE_URL=""`): the browser calls
+`/api` on whatever host served the page. So HTTP ↔ HTTPS, a new IP or a real domain is an
+`.env` change on the server, never a rebuild.
+
+Prerequisites: inbound **80/tcp and 443/tcp** open in the security group (Let's Encrypt validates
+on 80; browsers use 443), and ideally an **Elastic IP**, because a stop/start changes the public IP
+and with it the sslip.io name.
+
+```bash
+ssh ubuntu@<host>
+cd /opt/spilltrace
+bash enable-https.sh                          # https://<ip-with-dashes>.sslip.io — no domain needed
+bash enable-https.sh spilltrace.example.org   # your own domain; its A record must point at the IP
+bash enable-https.sh --http                   # back to plain HTTP on the IP
+```
+
+The script checks the name resolves to this instance, sets `PUBLIC_URL`, `SITE_ADDRESS`,
+`REDIRECT_ADDRESS` and `SPILLTRACE_ENV=production` (Secure refresh cookie, HSTS), recreates the
+stack, and waits until a valid certificate answers. Caddy renews it on its own; certificates
+persist in the `caddy-data` volume. After switching, set the GitHub variable `PUBLIC_URL` to the
+HTTPS URL so the post-deploy smoke test calls it directly (the IP redirects there anyway).
+
+`sslip.io` is a public wildcard DNS service: `18-212-85-28.sslip.io` resolves to `18.212.85.28`.
+It is on the Public Suffix List, so Let's Encrypt rate limits apply per name, not to all of
+sslip.io. Use a real domain for anything beyond a demo.
+
+### 8.7 Known limits of this topology
+
+* Plain HTTP on a bare IP means no TLS, no HSTS and `SPILLTRACE_ENV=staging`; §8.6 fixes all
+  three with one command.
 * The instance's SSH host key is trusted on first use by the workflow (`ssh-keyscan`).
   Pin it by replacing that line with a `known_hosts` entry if the instance is long-lived.
 * One host, no replicas: the API, worker and AIS ingestor share 2 vCPUs. U-Net inference

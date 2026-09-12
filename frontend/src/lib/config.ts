@@ -11,9 +11,31 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
+/**
+ * Resolve the API origin from the build-time setting.
+ *
+ * - Unset: local development, where the API runs on its own port.
+ * - An origin (`https://api.example.org`): the API lives on another host.
+ * - Empty string: **same origin**. A reverse proxy serves `/api/*` beside the app,
+ *   so the bundle is not tied to any host name. The production image is built this
+ *   way, which is what lets one image move between an IP, a domain and HTTPS without
+ *   a rebuild. In the browser that resolves to the page's own origin; during the
+ *   server render there is no page, so API URLs stay path-relative there.
+ */
+export function resolveApiBaseUrl(
+  configured: string | undefined,
+  pageOrigin: string | undefined,
+): string {
+  if (configured === undefined) return 'http://localhost:8000';
+  const trimmed = trimTrailingSlash(configured.trim());
+  if (trimmed) return trimmed;
+  return pageOrigin ? trimTrailingSlash(pageOrigin) : '';
+}
+
 /** Origin of the SPILLTRACE API — our own FastAPI service, never a third party. */
-export const API_BASE_URL = trimTrailingSlash(
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000',
+export const API_BASE_URL = resolveApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL,
+  typeof window !== 'undefined' ? window.location.origin : undefined,
 );
 
 /** API.md §1 — every versioned endpoint lives under this prefix. */

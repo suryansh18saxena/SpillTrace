@@ -63,12 +63,16 @@ services:
   caddy:
     image: caddy:2-alpine
     environment:
-      # ":80" serves plain HTTP on the instance IP. Set a DNS name (e.g.
-      # spilltrace.example.org) and Caddy obtains a Let's Encrypt certificate itself.
+      # ":80" serves plain HTTP on the instance IP. A DNS name (a real domain, or
+      # <ip-with-dashes>.sslip.io) makes Caddy obtain a Let's Encrypt certificate
+      # itself. infra/deploy/enable-https.sh sets all three values.
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      REDIRECT_ADDRESS: ${REDIRECT_ADDRESS:-http://redirect.invalid}
+      PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL is required}
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
