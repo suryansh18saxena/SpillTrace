@@ -2,7 +2,7 @@
 # Switch the running SPILLTRACE stack between plain HTTP and HTTPS. Runs ON THE SERVER.
 #
 #   bash enable-https.sh                       # HTTPS on <public-ip-with-dashes>.sslip.io
-#   bash enable-https.sh spilltrace.example.org  # HTTPS on your own domain (A record -> this IP)
+#   bash enable-https.sh example.org www.example.org  # your domain(s); A records -> this IP
 #   bash enable-https.sh --http                # back to plain HTTP on the IP
 #
 # Needs inbound 80/tcp and 443/tcp open in the security group: Let's Encrypt validates
@@ -50,19 +50,29 @@ if [ "${1:-}" = "--http" ]; then
   exit 0
 fi
 
-HOST="${1:-${IP//./-}.sslip.io}"
-HOST="${HOST#https://}"; HOST="${HOST#http://}"; HOST="${HOST%%/*}"
+# The first name is canonical (PUBLIC_URL); any others are served with the same cert set.
+NAMES=()
+for arg in "${@:-${IP//./-}.sslip.io}"; do
+  name="${arg#https://}"; name="${name#http://}"; name="${name%%/*}"
+  NAMES+=("${name}")
+done
+HOST="${NAMES[0]}"
 
-echo "== preflight: ${HOST} must resolve to ${IP}"
-RESOLVED="$(getent ahostsv4 "${HOST}" | awk 'NR==1{print $1}')"
-if [ "${RESOLVED}" != "${IP}" ]; then
-  echo "enable-https: ${HOST} resolves to '${RESOLVED:-nothing}', not ${IP}."
-  echo "Point an A record at ${IP} (or use the default sslip.io name) and retry."
-  exit 1
-fi
+for name in "${NAMES[@]}"; do
+  echo "== preflight: ${name} must resolve to ${IP}"
+  RESOLVED="$(getent ahostsv4 "${name}" | awk 'NR==1{print $1}')"
+  if [ "${RESOLVED}" != "${IP}" ]; then
+    echo "enable-https: ${name} resolves to '${RESOLVED:-nothing}', not ${IP}."
+    echo "Point an A record at ${IP} (or use the default sslip.io name) and retry."
+    exit 1
+  fi
+done
 
+# Caddy needs ", " between site addresses; a bare comma is a parse error.
+SITE_LIST="$(printf '%s, ' "${NAMES[@]}")"
+SITE_LIST="${SITE_LIST%, }"
 set_env PUBLIC_URL "https://${HOST}"
-set_env SITE_ADDRESS "${HOST}"
+set_env SITE_ADDRESS "${SITE_LIST}"
 set_env REDIRECT_ADDRESS "http://${IP}"
 # Secure refresh cookie, HSTS and the production start-up checks.
 set_env SPILLTRACE_ENV "production"
