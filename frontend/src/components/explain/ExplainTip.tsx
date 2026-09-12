@@ -79,7 +79,11 @@ export function ExplainTip({ term, explainer, children, className }: ExplainTipP
         ?
       </button>
       {open ? (
-        <span id={id} role="tooltip" className={cx(styles.tipBubble, below && styles.tipBubbleBelow)}>
+        <span
+          id={id}
+          role="tooltip"
+          className={cx(styles.tipBubble, below && styles.tipBubbleBelow)}
+        >
           <span className={styles.tipTitle}>{resolved.title}</span>
           <span className={styles.tipBody}>{resolved.body}</span>
           {resolved.caution ? <span className={styles.tipCaution}>{resolved.caution}</span> : null}

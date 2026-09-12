@@ -158,7 +158,8 @@ export function useMap(options: UseMapOptions = {}): UseMapResult {
       try {
         const maplibre = await import('maplibre-gl');
         const response = await fetch(MAP_STYLE_URL);
-        if (!response.ok) throw new Error(`The basemap style could not be loaded (${response.status}).`);
+        if (!response.ok)
+          throw new Error(`The basemap style could not be loaded (${response.status}).`);
         const offline = (await response.json()) as StyleSpecification;
         if (cancelled) return;
 

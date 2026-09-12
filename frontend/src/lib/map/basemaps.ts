@@ -152,9 +152,7 @@ function raster(
 
 const CARTO_SUBDOMAINS = ['a', 'b', 'c', 'd'];
 const carto = (style: 'dark_all' | 'light_all') =>
-  CARTO_SUBDOMAINS.map(
-    (sub) => `https://${sub}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}@2x.png`,
-  );
+  CARTO_SUBDOMAINS.map((sub) => `https://${sub}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}@2x.png`);
 
 const BASEMAP_SOURCES: Record<string, RasterSourceSpecification> = {
   [SOURCE.imagery]: raster(

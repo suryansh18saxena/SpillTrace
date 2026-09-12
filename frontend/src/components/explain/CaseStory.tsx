@@ -129,8 +129,8 @@ export function CaseStory({ caseId }: CaseStoryProps) {
       machine: 'case created',
       body: (
         <>
-          An investigation always starts with a place and a stretch of time. Everything that
-          follows is limited to this{' '}
+          An investigation always starts with a place and a stretch of time. Everything that follows
+          is limited to this{' '}
           <ExplainTip term="aoi">
             <span>area of interest</span>
           </ExplainTip>{' '}
@@ -163,9 +163,9 @@ export function CaseStory({ caseId }: CaseStoryProps) {
           <ExplainTip term="sentinel-1">
             <span>Sentinel-1</span>
           </ExplainTip>{' '}
-          satellites. A rough, windy sea scatters radar and comes back bright. A smooth sea
-          reflects it away and comes back dark. The raw image is then cleaned so that dark means
-          the same thing everywhere in it.
+          satellites. A rough, windy sea scatters radar and comes back bright. A smooth sea reflects
+          it away and comes back dark. The raw image is then cleaned so that dark means the same
+          thing everywhere in it.
         </>
       ),
       figures:
@@ -236,8 +236,8 @@ export function CaseStory({ caseId }: CaseStoryProps) {
       machine: 'env.fetch → detect.verify',
       body: (
         <>
-          Low wind, algae, rain cells and river water all flatten the sea and look like oil on
-          radar — these are called{' '}
+          Low wind, algae, rain cells and river water all flatten the sea and look like oil on radar
+          — these are called{' '}
           <ExplainTip term="look-alike">
             <span>look-alikes</span>
           </ExplainTip>
@@ -287,8 +287,8 @@ export function CaseStory({ caseId }: CaseStoryProps) {
       machine: 'drift.hindcast',
       body: (
         <>
-          Oil does not stay where it was spilled — wind and current carry it. Thousands of
-          imaginary particles are dropped into the slick and pushed{' '}
+          Oil does not stay where it was spilled — wind and current carry it. Thousands of imaginary
+          particles are dropped into the slick and pushed{' '}
           <ExplainTip term="drift-hindcast">
             <span>backwards</span>
           </ExplainTip>{' '}
@@ -459,10 +459,13 @@ export function CaseStory({ caseId }: CaseStoryProps) {
           <p className={styles.storyIntroCaution}>{WHAT_IS_SPILLTRACE.caution}</p>
         ) : null}
         {record ? (
-          <p className={styles.storyIntroCaution} style={{ borderLeftColor: 'var(--color-accent)' }}>
-            Below is what happened in this particular investigation,{' '}
-            <strong>{record.title}</strong>, step by step, with the real number each step produced.
-            Its data is labelled <ProvenanceBadge provenance={record.data_provenance} />.
+          <p
+            className={styles.storyIntroCaution}
+            style={{ borderLeftColor: 'var(--color-accent)' }}
+          >
+            Below is what happened in this particular investigation, <strong>{record.title}</strong>
+            , step by step, with the real number each step produced. Its data is labelled{' '}
+            <ProvenanceBadge provenance={record.data_provenance} />.
           </p>
         ) : null}
       </section>
@@ -530,8 +533,8 @@ export function CaseStory({ caseId }: CaseStoryProps) {
         <p className={styles.storyEndBody}>
           That a slick was seen at a place and a time, that it did not look like the natural things
           that imitate oil, that the weather points back to a region it plausibly came from, and
-          that a handful of ships were in that region then. That is a starting point for an
-          enquiry — somebody now has to go and check.
+          that a handful of ships were in that region then. That is a starting point for an enquiry
+          — somebody now has to go and check.
         </p>
         {attributions.data?.disclaimer ? (
           <div style={{ marginTop: 'var(--space-4)' }}>

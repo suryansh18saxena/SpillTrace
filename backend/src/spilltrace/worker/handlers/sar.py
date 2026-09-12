@@ -114,9 +114,7 @@ async def preprocess_scene(ctx: JobContext) -> dict[str, Any]:
     # power; an operator-supplied file may already be in dB, and logging it twice would
     # silently empty the scene rather than fail (see ``sigma0_to_db``).
     already_db = str(bundle.extra.get("units") or "").strip().lower() in DB_UNIT_NAMES
-    await ctx.progress(
-        0.5, "standardising" if already_db else "converting to dB and standardising"
-    )
+    await ctx.progress(0.5, "standardising" if already_db else "converting to dB and standardising")
     scene_data = preprocess_bands(arrays, percentiles=percentiles, already_db=already_db)
     notes.extend(scene_data.notes)
 

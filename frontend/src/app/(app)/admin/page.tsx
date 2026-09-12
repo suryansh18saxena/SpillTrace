@@ -120,8 +120,7 @@ const providerColumns: Column<SystemProvider>[] = [
     key: 'requires',
     header: 'Requires',
     mono: true,
-    render: (row) =>
-      formatRequires(row.requires),
+    render: (row) => formatRequires(row.requires),
   },
 ];
 

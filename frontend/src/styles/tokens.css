@@ -251,8 +251,8 @@
   --duration-slower: 700ms;
   --blur-sm: 6px;
   --blur-md: 14px;
-  --blur-lg: 28px;}
-
+  --blur-lg: 28px;
+}
 
 [data-theme='light'] {
   color-scheme: light;

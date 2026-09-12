@@ -149,8 +149,7 @@ def extract_acquisition_time(filename: str, tags: dict[str, str] | None) -> Acqu
                     stop=stop,
                     source="filename",
                     detail=(
-                        "read from the Sentinel-1 product name in the filename "
-                        f"({match.group(0)})"
+                        f"read from the Sentinel-1 product name in the filename ({match.group(0)})"
                     ),
                     is_acquisition=True,
                 )
@@ -172,7 +171,8 @@ def extract_acquisition_time(filename: str, tags: dict[str, str] | None) -> Acqu
     match = _COMPACT_STAMP.search(filename)
     if match:
         try:
-            parsed = datetime(*(int(part) for part in match.groups()), tzinfo=UTC)
+            year, month, day, hour, minute, second = (int(part) for part in match.groups())
+            parsed = datetime(year, month, day, hour, minute, second, tzinfo=UTC)
         except ValueError:
             parsed = None
         if parsed is not None:
@@ -213,7 +213,8 @@ def _parse_any(value: str) -> datetime | None:
     match = _TIFF_DATETIME.match(text)
     if match:
         try:
-            return datetime(*(int(part) for part in match.groups()), tzinfo=UTC)
+            year, month, day, hour, minute, second = (int(part) for part in match.groups())
+            return datetime(year, month, day, hour, minute, second, tzinfo=UTC)
         except ValueError:
             return None
     compact = _COMPACT_STAMP.search(text)

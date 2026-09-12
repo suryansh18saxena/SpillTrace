@@ -241,9 +241,7 @@ def preprocess_bands(
         source_name = wanted if wanted in available else substitute
         if source_name != wanted:
             notes.append(f"{wanted} unavailable; {source_name} duplicated")
-        db, valid = sigma0_to_db(
-            available[source_name], nodata=nodata, already_db=already_db
-        )
+        db, valid = sigma0_to_db(available[source_name], nodata=nodata, already_db=already_db)
         standardised, stats = clip_and_standardise(
             db, valid, polarization=wanted, percentiles=percentiles
         )

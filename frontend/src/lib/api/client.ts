@@ -385,7 +385,9 @@ async function requestOnce(path: string, options: ApiRequestOptions): Promise<Re
       // server can rotate it. No third-party origin is ever contacted (AD-5).
       credentials: 'include',
       signal: combined.signal,
-      ...(body === undefined ? {} : { body: multipart ? (body as FormData) : JSON.stringify(body) }),
+      ...(body === undefined
+        ? {}
+        : { body: multipart ? (body as FormData) : JSON.stringify(body) }),
     });
   } catch (error) {
     if (timeoutController.signal.aborted) {

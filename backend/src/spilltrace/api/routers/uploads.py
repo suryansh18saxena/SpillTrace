@@ -196,7 +196,8 @@ def _read_upload(
         band_descriptions = [d or "" for d in dataset.descriptions]
         source_dtype = str(dataset.dtypes[0])
         driver = str(dataset.driver)
-        source_bounds = tuple(float(v) for v in dataset.bounds)
+        b = dataset.bounds
+        source_bounds = (float(b.left), float(b.bottom), float(b.right), float(b.top))
         # The decimated grid has its own transform; the file's is for the full raster.
         src_transform = dataset.transform * Affine.scale(width / out_width, height / out_height)
 
@@ -248,7 +249,10 @@ def _read_upload(
             )
             reprojected.append(destination)
         arrays = reprojected
-        bounds = tuple(float(v) for v in array_bounds(dst_height, dst_width, dst_transform))
+        west, south, east, north = (
+            float(v) for v in array_bounds(dst_height, dst_width, dst_transform)
+        )
+        bounds = (west, south, east, north)
         georeferenced = True
         if source_crs_name != "EPSG:4326":
             notes.append(
@@ -495,7 +499,7 @@ async def ingest_scene(
         scene_id=scene.id,
         product_id=product_id,
         polarizations=list(read.polarizations),
-        units=read.units,  # type: ignore[arg-type]
+        units=read.units,
         units_reason=read.units_reason,
         georeferenced=read.georeferenced,
         source_crs=read.source_crs,
@@ -553,7 +557,8 @@ async def upload_scene(
     case = await CaseRepository(session).get_for_user(case_id, user)
 
     payload = await _collect(file)
-    aoi_bounds = tuple(float(v) for v in to_shape(case.aoi).bounds)
+    minx, miny, maxx, maxy = (float(v) for v in to_shape(case.aoi).bounds)
+    aoi_bounds = (minx, miny, maxx, maxy)
     read = await asyncio.to_thread(_read_upload, payload, aoi_bounds=aoi_bounds, hint=units)
     ingested = await ingest_scene(
         session,
