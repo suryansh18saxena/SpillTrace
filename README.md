@@ -117,7 +117,7 @@ flowchart TB
     TRAJ --> CORR
     RANK --> REPORT(["Investigation dashboard<br/>+ evidence report"])
 
-    LOOK -.->|"FALSE_POSITIVE"| STOP(["Chain stops:<br/>not oil"])
+    LOOK -.->|"FALSE_POSITIVE"| STOP(["Excluded from drift:<br/>not oil"])
 ```
 
 Four properties hold at every step:
@@ -138,47 +138,46 @@ Four properties hold at every step:
 ### 3.1 Runtime view
 
 ```mermaid
-flowchart LR
-    USER(["Analyst<br/>browser"])
+flowchart TB
+    USER(["Analyst · browser"])
+    FE["Next.js 15 frontend<br/>React 19 · MapLibre GL · GSAP"]
+    API["api — FastAPI<br/>JWT auth · REST · live event stream"]
+    REDIS[("Redis 7<br/>job queue · progress events")]
 
-    subgraph EDGE["Presentation"]
-        FE["Next.js 15 frontend<br/>React 19 · MapLibre GL · GSAP"]
+    subgraph RUN["Background runtimes · same Python package as the API"]
+        direction LR
+        WORKER["worker<br/>runs the 13 pipeline stages"]
+        INGEST["ais-ingestor<br/>long-running AIS consumer"]
     end
 
-    subgraph BACKEND["One Python package · three runtimes"]
-        API["api<br/>FastAPI · JWT auth<br/>REST + event stream"]
-        WORKER["worker<br/>pipeline job handlers"]
-        INGEST["ais-ingestor<br/>long-running AIS stream"]
-    end
-
-    subgraph DATA["State"]
-        PG[("PostgreSQL 16<br/>+ PostGIS 3.4<br/>cases · geometry · jobs · scores")]
-        REDIS[("Redis 7<br/>job queue · events")]
+    subgraph STORE["Durable state"]
+        direction LR
+        PG[("PostgreSQL 16 + PostGIS 3.4<br/>cases · geometry · jobs · scores")]
         MINIO[("MinIO / S3<br/>rasters · models · reports")]
     end
 
-    subgraph EXTERNAL["External providers · config-selected"]
+    subgraph EXT["External providers · chosen by configuration"]
+        direction LR
         CDSE["Copernicus Data Space<br/>Sentinel-1 SAR"]
         CMEMS["Copernicus Marine<br/>wind · currents"]
+        SYN["Synthetic providers<br/>deterministic, labelled"]
         AISS["AISStream<br/>live AIS"]
-        SYN["Deterministic synthetic<br/>providers"]
     end
 
     USER -->|HTTPS| FE
-    FE -->|"REST + SSE<br/>bearer token"| API
-    API -->|enqueue| REDIS
-    API <--> PG
-    API -->|"presigned reads"| MINIO
-    REDIS -->|"reliable claim"| WORKER
-    WORKER <--> PG
-    WORKER <--> MINIO
-    WORKER -->|progress events| REDIS
-    INGEST --> PG
-
-    WORKER -.-> CDSE
-    WORKER -.-> CMEMS
-    WORKER -.-> SYN
-    INGEST -.-> AISS
+    FE -->|"REST + Server-Sent Events"| API
+    API -->|"1 · enqueue job"| REDIS
+    REDIS -->|"2 · reliable claim"| WORKER
+    WORKER -.->|"3 · progress events"| REDIS
+    API -->|"cases · results"| PG
+    WORKER -->|"results + provenance"| PG
+    WORKER -->|"rasters · reports"| MINIO
+    INGEST -->|positions| PG
+    API -.->|"artifact reads"| MINIO
+    WORKER --> CDSE
+    WORKER --> CMEMS
+    WORKER --> SYN
+    INGEST --> AISS
 ```
 
 **The browser talks to exactly one backend: the SPILLTRACE API.** It never calls Copernicus or
@@ -223,16 +222,17 @@ flowchart TB
     MLL --> CORE
 ```
 
-The dependency rule is enforced by a test: **`core` imports nothing from `adapters`, `db`, `api`
-or `worker`.** The scoring model, the look-alike rules and the AIS cleaner are therefore plain
-functions over plain data, unit-testable without a database, a network or a GPU.
+The dependency rule: **`core` imports nothing from `adapters`, `db`, `api` or `worker`.** It holds
+across the current code, though no automated check enforces it yet. Because of it, the scoring
+model, the look-alike rules and the AIS cleaner are plain functions over plain data, unit-testable
+without a database, a network or a GPU.
 
 Every external system sits behind a `Protocol` in `core/ports.py` with a real and a deterministic
 implementation, selected by an environment variable:
 
 | Port | Real implementation | Deterministic implementation | Variable |
 |---|---|---|---|
-| Satellite catalogue | `CdseCatalogue` (Copernicus Data Space) | `FixtureCatalogue` | `SPILLTRACE_SATELLITE_PROVIDER` |
+| Satellite catalogue | `CDSECatalogue` (Copernicus Data Space) | `FixtureCatalogue` | `SPILLTRACE_SATELLITE_PROVIDER` |
 | Environment | `CopernicusMarineProvider` | `SyntheticEnvironmentProvider` | `SPILLTRACE_ENVIRONMENT_PROVIDER` |
 | AIS | `AISStreamProvider` (server-side WebSocket) | `SyntheticAISProvider` | `SPILLTRACE_AIS_PROVIDER` |
 | Drift engine | *OpenOil — not yet implemented* | `AnalyticalDriftEngine` | `SPILLTRACE_DRIFT_ENGINE` |
@@ -381,19 +381,19 @@ Many dark patches on radar are not oil: low-wind areas, algal films, rain cells,
 binary oil / not-oil answer would over-claim, so verification has **three** outcomes —
 `VERIFIED`, `UNCERTAIN`, `FALSE_POSITIVE` — and reports the evidence for each rule.
 
-| Rule | Physical basis |
-|---|---|
-| **Wind window** | Below ~2 m/s the sea is glassy and a dark patch means nothing; 2–4 m/s is where look-alikes peak; **4–10 m/s** is where SAR oil detection is reliable; above ~12 m/s only thick slicks survive |
-| **Shape complexity** | Natural films tend to have convoluted, fractal-like edges; discharges are simpler |
-| **Elongation** | A ship discharging while under way leaves a long, narrow track |
-| **Area** | Implausibly small or huge patches are down-weighted |
-| **Contrast** | Oil damps capillary waves strongly and produces a sharp backscatter drop |
-| **VV/VH power ratio** | Polarimetric behaviour differs between mineral oil and biogenic films |
-| **Border gradient** | Oil tends to have a sharp edge; low-wind areas fade gradually |
+| Rule | Weight | Physical basis |
+|---|---:|---|
+| **Wind window** | 0.30 | The strongest single test. Below ~2 m/s the sea is glassy and a dark patch means nothing; 2–4 m/s is where look-alikes peak; **4–10 m/s** is where SAR oil detection is reliable; above ~12 m/s only thick slicks survive |
+| **Backscatter contrast** | 0.25 | Oil damps the small waves radar sees, so it should be clearly darker than the surrounding sea — strong at ≥ 6 dB, weak at ≤ 2 dB |
+| **Boundary irregularity** | 0.13 | A drawn-out, irregular boundary (complexity ≥ 1.6) is characteristic of oil spreading and weathering |
+| **Elongation** | 0.10 | A long, linear form (length-to-width ≥ 2) is typical of a discharge trailing behind a moving vessel |
+| **Relative backscatter variance** | 0.10 | A damped, homogeneous interior (power-to-mean ratio ≤ 0.9) fits oil better than a noisy patch |
+| **Detected area** | 0.07 | Patches too small to separate from radar speckle at Sentinel-1 resolution count against oil |
+| **Edge sharpness** | 0.05 | Oil tends to have a well-defined edge, whereas low-wind areas fade gradually |
 
 A rule that cannot be evaluated (for example, no wind data) says *"not evaluated"* rather than
-silently contributing a zero. A `FALSE_POSITIVE` verdict stops the chain: no drift is run and no
-ship is ranked for something that is not oil.
+silently contributing a zero. A detection judged `FALSE_POSITIVE` is excluded from reverse drift,
+so no ship is ever ranked because of something that is not oil.
 
 ---
 
@@ -415,9 +415,9 @@ shown separately; the final score is their weighted sum.
 |---|---:|---|
 | **Origin proximity** | 0.35 | How close did the vessel come to the high-probability core of the origin region? |
 | **Time match** | 0.20 | Was it there *during* the inferred discharge window? |
-| **Trajectory match** | 0.15 | Does its path pass through the region, rather than clip an edge? |
-| **Heading match** | 0.10 | Is its course consistent with the orientation of the slick? |
-| **Speed match** | 0.10 | Was its speed consistent with a discharge while under way? |
+| **Trajectory match** | 0.15 | Did its path actually transit the region, rather than pass through the neighbourhood once? |
+| **Heading match** | 0.10 | Is its course compatible with the origin and the slick? Deliberately weak evidence: held within 0.25–0.90 so a heading can neither clear a vessel nor stand in for spatial and temporal evidence |
+| **Speed match** | 0.10 | Is its median speed plausible for a discharge, and was it moving steadily? |
 | **AIS reliability** | 0.10 | How complete and consistent is its AIS record? Gaps *lower* this. |
 | | **1.00** | |
 
@@ -452,7 +452,7 @@ The system is built so that it cannot quietly overstate what it knows.
 | Constraint | How it is enforced |
 |---|---|
 | **Synthetic data is always labelled** | Every artifact carries `data_provenance`; a case rolls up to `SYNTHETIC` or `MIXED` if any input was synthetic; synthetic vessels carry `(SYNTHETIC)` in their names |
-| **Never "guilty", "culprit", "responsible", "proven", "suspect"** | A vocabulary test fails the build if any of these appear in user-facing copy |
+| **Forbidden phrases never appear** | Tests assert that no explanation the scorer writes — including every "insufficient data" path — contains "guilty", "proven", "responsible vessel", "legal probability", "confirmed polluter" and similar, and that every attribution carries its disclaimer |
 | **Unknown is not zero** | A value that was not measured renders as "—", never as `0` |
 | **Provenance is written out** | Sources, model versions and parameters appear as text in the report, not as an icon |
 | **Red means system failure only** | Evidence is never coloured red; red is reserved for a broken job |
@@ -543,13 +543,13 @@ adapter itself. Measurements and reasoning for each are in [docs/DECISIONS.md](d
 
 ## 11. Running it
 
-**Requirements:** Docker or Podman with Compose, about 8 GB of RAM, and `make`.
+**Requirements:** Docker or Podman with Compose, and `make`.
 
 ```bash
 make init-env      # create .env with generated secrets
 make up            # start the whole stack
 make migrate       # apply database migrations
-make seed          # create the initial users and reference data
+make seed          # users, the registered model version and the demo case
 make demo          # build a fully synthetic demonstration case
 ```
 
@@ -595,7 +595,7 @@ flowchart LR
     GHA -->|"SSH · deploy.sh"| HOST
 
     subgraph HOST["AWS EC2 · /opt/spilltrace"]
-        CADDY["Caddy :80 / :443"]
+        CADDY["Caddy<br/>HTTP, or automatic HTTPS<br/>once a domain is set"]
         subgraph STACK["compose.prod.yml"]
             PAPI["api"]
             PWK["worker"]
@@ -609,7 +609,7 @@ flowchart LR
     end
 
     HOST -->|"docker compose pull"| GHCR
-    VISITOR(["Visitor"]) -->|HTTPS| CADDY
+    VISITOR(["Visitor"]) --> CADDY
 ```
 
 Caddy puts the frontend and the API behind **one origin**. That matters for two reasons: the API
@@ -704,11 +704,12 @@ make quality-gate    # ruff, mypy, pytest, secret audit
 |---|---|
 | Backend (pytest) | **647 passed** |
 | Frontend (Vitest) | **165 passed** across 11 files |
-| Lint | ruff clean |
+| Lint (ruff, backend source and tests) | clean |
 
-The test suite includes the import-boundary rule for `core`, the banned-vocabulary check for
-user-facing copy, and a failure-mode matrix that asserts empty results are reported as findings
-rather than errors.
+The backend suite includes the mandated-language tests, ordering tests asserting that the nearest
+vessel is not automatically ranked first and that an AIS gap never raises a score, and a
+determinism test proving the demo scenario produces identical results on every run. The
+failure-mode matrix is documented in [docs/TESTING.md](docs/TESTING.md).
 
 ---
 

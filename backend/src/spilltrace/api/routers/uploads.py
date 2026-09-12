@@ -43,10 +43,11 @@ from spilltrace.adapters.storage import build_object_store
 from spilltrace.api.auth import CurrentUser
 from spilltrace.api.deps import SessionDep, SettingsDep
 from spilltrace.core.enums import ArtifactType, DataProvenance, DownloadStatus, JobType
-from spilltrace.core.errors import NotFoundError, ValidationError
+from spilltrace.core.errors import ValidationError
 from spilltrace.core.geometry import bbox_polygon
 from spilltrace.core.raster import write_geotiff
 from spilltrace.db.models import Case, CaseScene, EvidenceArtifact, SatelliteScene
+from spilltrace.db.repositories.cases import CaseRepository
 from spilltrace.logging import get_logger
 from spilltrace.worker.pipeline import create_pipeline, runnable_jobs
 from spilltrace.worker.queue import JobQueue
@@ -117,6 +118,13 @@ class _ReadResult:
     units_reason: str
     source_shape: list[int]
     notes: list[str] = field(default_factory=list)
+    tags: dict[str, str] = field(default_factory=dict)
+    band_descriptions: list[str] = field(default_factory=list)
+    source_dtype: str = "float32"
+    source_band_count: int = 1
+    nodata: float | None = None
+    driver: str = "GTiff"
+    source_bounds: tuple[float, float, float, float] | None = None
 
 
 def _decide_units(arrays: list[np.ndarray], hint: UnitsHint) -> tuple[str, str]:
@@ -144,7 +152,7 @@ def _decide_units(arrays: list[np.ndarray], hint: UnitsHint) -> tuple[str, str]:
 
 
 def _read_upload(
-    payload: bytes, *, aoi_bounds: tuple[float, float, float, float], hint: UnitsHint
+    payload: bytes, *, aoi_bounds: tuple[float, float, float, float] | None, hint: UnitsHint
 ) -> _ReadResult:
     """Decode the upload into EPSG:4326 bands.  Runs in a worker thread."""
     from affine import Affine
@@ -184,6 +192,11 @@ def _read_upload(
         ]
         source_crs = dataset.crs
         nodata = dataset.nodata
+        tags = {str(k): str(v) for k, v in dataset.tags().items()}
+        band_descriptions = [d or "" for d in dataset.descriptions]
+        source_dtype = str(dataset.dtypes[0])
+        driver = str(dataset.driver)
+        source_bounds = tuple(float(v) for v in dataset.bounds)
         # The decimated grid has its own transform; the file's is for the full raster.
         src_transform = dataset.transform * Affine.scale(width / out_width, height / out_height)
 
@@ -242,6 +255,15 @@ def _read_upload(
                 f"The raster was reprojected from {source_crs_name} to EPSG:4326 so its "
                 "detections share one coordinate system with every other layer."
             )
+    elif aoi_bounds is None:
+        # Inspection before a case exists: there is nothing to place the raster on yet.
+        bounds = (0.0, 0.0, 0.0, 0.0)
+        georeferenced = False
+        notes.append(
+            "The file carries no map CRS, so its location cannot be read from it. State "
+            "the geographic bounds before running the investigation; any detection's "
+            "latitude and longitude will then be a placement, not a measurement."
+        )
     else:
         bounds = aoi_bounds
         georeferenced = False
@@ -263,6 +285,13 @@ def _read_upload(
         units_reason=units_reason,
         notes=notes,
         source_shape=[height, width],
+        tags=tags,
+        band_descriptions=band_descriptions,
+        source_dtype=source_dtype,
+        source_band_count=source_band_count,
+        nodata=None if nodata is None else float(nodata),
+        driver=driver,
+        source_bounds=source_bounds,
     )
 
 
@@ -281,32 +310,34 @@ async def _collect(upload: UploadFile) -> bytes:
     return b"".join(chunks)
 
 
-# --------------------------------------------------------------------------- endpoint
-@router.post(
-    "/{case_id}/scenes/upload",
-    response_model=SceneUploadResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Attach a supplied SAR measurement file to a case and run the chain on it",
-)
-async def upload_scene(
-    case_id: uuid.UUID,
-    user: CurrentUser,
-    session: SessionDep,
-    settings: SettingsDep,
-    file: Annotated[UploadFile, File(description="Single- or dual-band GeoTIFF of σ0.")],
-    units: Annotated[UnitsHint, Form()] = "auto",
-    acquired_at: Annotated[datetime | None, Form()] = None,
-    run_pipeline: Annotated[bool, Form()] = True,
-) -> SceneUploadResponse:
-    case = await session.get(Case, case_id)
-    if case is None:
-        raise NotFoundError(f"Case {case_id} does not exist.")
+# --------------------------------------------------------------------------- ingest
+@dataclass(frozen=True, slots=True)
+class IngestedScene:
+    scene: SatelliteScene
+    response: SceneUploadResponse
 
-    payload = await _collect(file)
-    aoi_bounds = tuple(float(v) for v in to_shape(case.aoi).bounds)
-    read = await asyncio.to_thread(_read_upload, payload, aoi_bounds=aoi_bounds, hint=units)
 
-    filename = (file.filename or "upload.tif").rsplit("/", 1)[-1]
+async def ingest_scene(
+    session: Any,
+    settings: Any,
+    *,
+    case: Case,
+    user: Any,
+    read: _ReadResult,
+    filename: str,
+    acquired_at: datetime | None,
+    run_pipeline: bool,
+    extra_notes: list[str] | None = None,
+    acquisition_source: str | None = None,
+) -> IngestedScene:
+    """Store a decoded scene exactly as ``scene.download`` would have, and optionally run.
+
+    Shared by the attach-to-existing-case endpoint and the upload-first case creation, so
+    there is one ingest path and nothing downstream can tell them apart.
+    """
+    from spilltrace.core.scene_metadata import render_quicklook
+
+    filename = (filename or "upload.tif").rsplit("/", 1)[-1]
     stem = filename.rsplit(".", 1)[0][:48] or "upload"
     scene_id = uuid.uuid4()
     # The catalogue's uniqueness constraint is on product_id; two uploads of the same
@@ -315,6 +346,7 @@ async def upload_scene(
     observed_at = acquired_at or case.end_time
     footprint = bbox_polygon(*read.bounds)
     height, width = read.arrays[0].shape
+    notes = [*read.notes, *(extra_notes or [])]
 
     store = build_object_store(settings)
     bands: list[SceneBand] = []
@@ -344,12 +376,18 @@ async def upload_scene(
         )
         artifacts.append((polarization, stored))
 
+    # A display quicklook, stored beside the bands so the map can show the scene itself.
+    quicklook_png, stretch = await asyncio.to_thread(render_quicklook, read.arrays[0], read.units)
+    quicklook = await store.put_bytes(
+        f"scenes/{scene_id}/quicklook.png", quicklook_png, media_type="image/png"
+    )
+
     bundle = SceneBundle(
         product_id=product_id,
         provider="upload",
         bands=tuple(bands),
         data_provenance=DataProvenance.REAL,
-        notes=(UNVERIFIED_ORIGIN_NOTE, *read.notes),
+        notes=(UNVERIFIED_ORIGIN_NOTE, *notes),
         extra={
             "units": read.units,
             "units_reason": read.units_reason,
@@ -388,7 +426,12 @@ async def upload_scene(
             "units_reason": read.units_reason,
             "georeferenced": read.georeferenced,
             "source_crs": read.source_crs,
+            "source_shape": read.source_shape,
+            "acquisition_source": acquisition_source,
             "notes": list(bundle.notes),
+            "quicklook_key": f"scenes/{scene_id}/quicklook.png",
+            "quicklook_stretch": stretch,
+            "quicklook_checksum": quicklook.checksum_sha256,
         },
         size_bytes=bundle.total_bytes,
         checksum_sha256=bundle.manifest_checksum(),
@@ -435,21 +478,7 @@ async def upload_scene(
 
     pipeline_id: uuid.UUID | None = None
     if run_pipeline:
-        pipeline_id, _ = await create_pipeline(
-            session,
-            case=case,
-            mode="REAL",
-            stages=list(UPLOAD_STAGES),
-            params={"scene_id": str(scene.id)},
-        )
-        ready = await runnable_jobs(session, pipeline_id)
-        await session.commit()
-        queue = JobQueue(settings)
-        try:
-            for job in ready:
-                await queue.enqueue(job.id, priority=job.priority)
-        finally:
-            await queue.close()
+        pipeline_id = await start_upload_pipeline(session, settings, case=case, scene=scene)
     else:
         await session.commit()
 
@@ -462,11 +491,11 @@ async def upload_scene(
         bands=read.polarizations,
         pipeline_id=str(pipeline_id) if pipeline_id else None,
     )
-    return SceneUploadResponse(
+    response = SceneUploadResponse(
         scene_id=scene.id,
         product_id=product_id,
         polarizations=list(read.polarizations),
-        units=read.units,
+        units=read.units,  # type: ignore[arg-type]
         units_reason=read.units_reason,
         georeferenced=read.georeferenced,
         source_crs=read.source_crs,
@@ -477,6 +506,73 @@ async def upload_scene(
         notes=list(bundle.notes),
         pipeline_id=pipeline_id,
     )
+    return IngestedScene(scene=scene, response=response)
 
 
-__all__ = ["UPLOAD_STAGES", "router"]
+async def start_upload_pipeline(
+    session: Any, settings: Any, *, case: Case, scene: SatelliteScene
+) -> uuid.UUID:
+    """Create the upload DAG (catalogue stages skipped), commit, and enqueue."""
+    pipeline_id, _ = await create_pipeline(
+        session,
+        case=case,
+        mode="REAL",
+        stages=list(UPLOAD_STAGES),
+        params={"scene_id": str(scene.id)},
+    )
+    ready = await runnable_jobs(session, pipeline_id)
+    await session.commit()
+    queue = JobQueue(settings)
+    try:
+        for job in ready:
+            await queue.enqueue(job.id, priority=job.priority)
+    finally:
+        await queue.close()
+    return pipeline_id
+
+
+# --------------------------------------------------------------------------- endpoint
+@router.post(
+    "/{case_id}/scenes/upload",
+    response_model=SceneUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Attach a supplied SAR measurement file to a case and run the chain on it",
+)
+async def upload_scene(
+    case_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    file: Annotated[UploadFile, File(description="Single- or dual-band GeoTIFF of σ0.")],
+    units: Annotated[UnitsHint, Form()] = "auto",
+    acquired_at: Annotated[datetime | None, Form()] = None,
+    run_pipeline: Annotated[bool, Form()] = True,
+) -> SceneUploadResponse:
+    # Same visibility rule as every other case endpoint: an analyst cannot attach
+    # evidence to a case they cannot read.
+    case = await CaseRepository(session).get_for_user(case_id, user)
+
+    payload = await _collect(file)
+    aoi_bounds = tuple(float(v) for v in to_shape(case.aoi).bounds)
+    read = await asyncio.to_thread(_read_upload, payload, aoi_bounds=aoi_bounds, hint=units)
+    ingested = await ingest_scene(
+        session,
+        settings,
+        case=case,
+        user=user,
+        read=read,
+        filename=file.filename or "upload.tif",
+        acquired_at=acquired_at,
+        run_pipeline=run_pipeline,
+        acquisition_source="stated at upload" if acquired_at else None,
+    )
+    return ingested.response
+
+
+__all__ = [
+    "UPLOAD_STAGES",
+    "IngestedScene",
+    "ingest_scene",
+    "router",
+    "start_upload_pipeline",
+]
