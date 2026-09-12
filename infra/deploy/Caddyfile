@@ -1,0 +1,35 @@
+# SPILLTRACE edge: one public origin for the browser.
+#   /api/*, /health*, /docs*, /openapi.json, /redoc*  ->  FastAPI  (api:8000)
+#   everything else                                   ->  Next.js  (frontend:3000)
+#
+# SITE_ADDRESS=":80" serves plain HTTP on the instance IP (no certificate is
+# possible for a bare IP). Point a DNS name at the instance, set
+# SITE_ADDRESS=that.name in .env, and Caddy provisions Let's Encrypt on its own;
+# then switch SPILLTRACE_ENV=production so the refresh cookie becomes Secure.
+
+{
+	admin off
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Scene uploads are whole SAR products.
+	request_body {
+		max_size 2GB
+	}
+
+	@api path /api/* /health /health/* /docs /docs/* /openapi.json /redoc /redoc/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

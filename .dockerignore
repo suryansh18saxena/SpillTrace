@@ -1,0 +1,28 @@
+# Build context hygiene: the repo root is the context for both Dockerfiles.
+# Everything here is either regenerated inside the image or must never enter one.
+.git
+.github
+.env
+.env.*
+!.env.example
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.egg-info
+data/
+ml/runs/
+ml/notebooks/
+best.pt/
+*.pt
+*.pth
+*.ckpt
+*.7z
+*.zip
+*.tif
+*.tiff
+*.nc
+*.pdf
+docs/

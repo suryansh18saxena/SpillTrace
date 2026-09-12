@@ -1,0 +1,257 @@
+# SPILLTRACE — single-host production stack (AWS EC2, Docker Compose).
+#
+# Differences from the development docker-compose.yml at the repo root:
+#   * images are pulled from GHCR (built by .github/workflows/deploy.yml),
+#     never built here and never bind-mounted from a source tree;
+#   * only Caddy publishes ports (80/443); every other service is internal;
+#   * migrations + seed run as a one-shot `migrate` service before the API starts;
+#   * the trained checkpoint is registered with `--profile tools run register-model`.
+#
+# Lives on the server at /opt/spilltrace/compose.prod.yml next to `.env`
+# (secrets, written once by infra/deploy/render-env.sh) and `.image.env`
+# (IMAGE_TAG + SPILLTRACE_GIT_SHA, rewritten by deploy.sh on every deploy).
+
+name: spilltrace
+
+x-backend-env: &backend-env
+  SPILLTRACE_ENV: ${SPILLTRACE_ENV:-staging}
+  SPILLTRACE_LOG_LEVEL: ${SPILLTRACE_LOG_LEVEL:-INFO}
+  SPILLTRACE_VERSION: ${SPILLTRACE_VERSION:-0.1.0}
+  SPILLTRACE_GIT_SHA: ${SPILLTRACE_GIT_SHA:-unknown}
+  SPILLTRACE_SECRET_KEY: ${SPILLTRACE_SECRET_KEY:?SPILLTRACE_SECRET_KEY is required}
+  SPILLTRACE_ACCESS_TOKEN_TTL_SECONDS: ${SPILLTRACE_ACCESS_TOKEN_TTL_SECONDS:-900}
+  SPILLTRACE_REFRESH_TOKEN_TTL_SECONDS: ${SPILLTRACE_REFRESH_TOKEN_TTL_SECONDS:-604800}
+  SPILLTRACE_CORS_ORIGINS: ${PUBLIC_URL:?PUBLIC_URL is required}
+  POSTGRES_USER: ${POSTGRES_USER:-spilltrace}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+  POSTGRES_DB: ${POSTGRES_DB:-spilltrace}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_DB: ${REDIS_DB:-0}
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://minio:9000}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-spilltrace}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+  S3_BUCKET: ${S3_BUCKET:-spilltrace}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  SPILLTRACE_SATELLITE_PROVIDER: ${SPILLTRACE_SATELLITE_PROVIDER:-fixture}
+  SPILLTRACE_ENVIRONMENT_PROVIDER: ${SPILLTRACE_ENVIRONMENT_PROVIDER:-synthetic}
+  SPILLTRACE_AIS_PROVIDER: ${SPILLTRACE_AIS_PROVIDER:-synthetic}
+  SPILLTRACE_DRIFT_ENGINE: ${SPILLTRACE_DRIFT_ENGINE:-analytical}
+  SPILLTRACE_SEGMENTATION_MODEL: ${SPILLTRACE_SEGMENTATION_MODEL:-analytical}
+  SPILLTRACE_STORAGE_PROVIDER: s3
+  SPILLTRACE_MAX_AOI_KM2: ${SPILLTRACE_MAX_AOI_KM2:-250000}
+  SPILLTRACE_MAX_TIME_WINDOW_DAYS: ${SPILLTRACE_MAX_TIME_WINDOW_DAYS:-30}
+  SPILLTRACE_JOB_MAX_ATTEMPTS: ${SPILLTRACE_JOB_MAX_ATTEMPTS:-3}
+  SPILLTRACE_WORKER_CONCURRENCY: ${SPILLTRACE_WORKER_CONCURRENCY:-2}
+  CDSE_USERNAME: ${CDSE_USERNAME:-}
+  CDSE_PASSWORD: ${CDSE_PASSWORD:-}
+  CDSE_CLIENT_ID: ${CDSE_CLIENT_ID:-cdse-public}
+  COPERNICUSMARINE_SERVICE_USERNAME: ${COPERNICUSMARINE_SERVICE_USERNAME:-}
+  COPERNICUSMARINE_SERVICE_PASSWORD: ${COPERNICUSMARINE_SERVICE_PASSWORD:-}
+  AISSTREAM_API_KEY: ${AISSTREAM_API_KEY:-}
+  # Caddy sits in front of uvicorn; trust its X-Forwarded-* headers so the rate
+  # limiter sees the client IP and HSTS is emitted once TLS is on.
+  FORWARDED_ALLOW_IPS: "*"
+
+x-backend-image: &backend-image
+  image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${IMAGE_TAG:-latest}
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      # ":80" serves plain HTTP on the instance IP. Set a DNS name (e.g.
+      # spilltrace.example.org) and Caddy obtains a Let's Encrypt certificate itself.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spilltrace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-spilltrace}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/99-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spilltrace} -d ${POSTGRES_DB:-spilltrace}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-spilltrace}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-spilltrace}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-spilltrace}
+    entrypoint: ["/bin/sh", "/scripts/init-buckets.sh"]
+    volumes:
+      - ./init-buckets.sh:/scripts/init-buckets.sh:ro
+    restart: "no"
+
+  # One-shot: schema to head, then the idempotent account seed. Re-runs on every
+  # deploy; a no-op when nothing changed. The API waits for it to finish.
+  migrate:
+    <<: *backend-image
+    command: ["sh", "-c", "cd /app/backend && alembic upgrade head && python -m spilltrace.db.seed"]
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: migrate
+      SPILLTRACE_ADMIN_EMAIL: ${SPILLTRACE_ADMIN_EMAIL:-admin@spilltrace.example.com}
+      SPILLTRACE_ADMIN_PASSWORD: ${SPILLTRACE_ADMIN_PASSWORD:?SPILLTRACE_ADMIN_PASSWORD is required}
+      SPILLTRACE_ANALYST_EMAIL: ${SPILLTRACE_ANALYST_EMAIL:-analyst@spilltrace.example.com}
+      SPILLTRACE_ANALYST_PASSWORD: ${SPILLTRACE_ANALYST_PASSWORD:?SPILLTRACE_ANALYST_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    <<: *backend-image
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    volumes:
+      - app-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  worker:
+    <<: *backend-image
+    command: ["python", "-m", "spilltrace.worker"]
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: worker
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - app-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/spilltrace-worker.alive && find /tmp/spilltrace-worker.alive -mmin -2 | grep -q ."]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  ais-ingestor:
+    <<: *backend-image
+    command: ["python", "-m", "spilltrace.worker.ais_ingestor"]
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: ais-ingestor
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}:${IMAGE_TAG:-latest}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Tool, not a service:  docker compose --profile tools run --rm register-model
+  # Uploads ./models/best.pt to object storage and writes the model_versions row
+  # (metrics come only from ./models/manifest.json — see ml/scripts/register_model.py).
+  register-model:
+    <<: *backend-image
+    profiles: ["tools"]
+    command:
+      - python
+      - /app/models/register_model.py
+      - --checkpoint
+      - /app/models/best.pt
+      - --manifest
+      - /app/models/manifest.json
+      - --version
+      - ${MODEL_VERSION:-0.2.0}
+      - --activate
+    environment:
+      <<: *backend-env
+      SPILLTRACE_ROLE: tools
+    volumes:
+      - ./models:/app/models:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  app-data:
+  caddy-data:
+  caddy-config:

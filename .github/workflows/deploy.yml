@@ -1,0 +1,167 @@
+name: Deploy
+
+# Build both images on GitHub, push them to GHCR, then roll the EC2 host forward
+# over SSH. Runs on every push to main (docs-only changes excluded) and on demand.
+#
+# Repository secrets:  EC2_HOST  EC2_USER  EC2_SSH_KEY  (see docs/DEPLOYMENT.md §8)
+# Repository variable: PUBLIC_URL   e.g. http://18.212.85.28  — baked into the
+#                      frontend bundle, so changing it needs a rebuild (a push).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "ml/notebooks/**"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing image tag to deploy without rebuilding (e.g. sha-abc1234). Leave empty to build."
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-api:
+    name: Build api image
+    if: ${{ github.event.inputs.tag == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/spilltrace-api
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.backend
+          target: runtime
+          push: true
+          build-args: |
+            INSTALL_ML=true
+            INSTALL_DEV=false
+            INSTALL_PROVIDERS=false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+  build-frontend:
+    name: Build frontend image
+    if: ${{ github.event.inputs.tag == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/spilltrace-frontend
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Resolve public origin
+        id: origin
+        run: |
+          url="${{ vars.PUBLIC_URL }}"
+          if [ -z "$url" ]; then url="http://${{ secrets.EC2_HOST }}"; fi
+          echo "url=${url%/}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.frontend
+          target: runtime
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ steps.origin.outputs.url }}
+            NEXT_PUBLIC_APP_NAME=SPILLTRACE
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+  deploy:
+    name: Deploy to EC2
+    needs: [build-api, build-frontend]
+    # Run after a build, or directly when an existing tag was supplied by hand.
+    if: ${{ always() && !cancelled() && (github.event.inputs.tag != '' || (needs.build-api.result == 'success' && needs.build-frontend.result == 'success')) }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          tag="${{ github.event.inputs.tag }}"
+          if [ -z "$tag" ]; then tag="sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<CFG
+          Host ec2
+            HostName $HOST
+            User ${{ secrets.EC2_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            ServerAliveInterval 30
+          CFG
+
+      - name: Ship deployment bundle
+        run: |
+          mkdir -p bundle
+          cp infra/deploy/compose.prod.yml infra/deploy/Caddyfile infra/deploy/deploy.sh bundle/
+          cp infra/minio/init-buckets.sh infra/postgres/init.sql bundle/
+          cp ml/scripts/register_model.py bundle/register_model.py
+          ssh ec2 'mkdir -p /opt/spilltrace/models'
+          scp -q bundle/compose.prod.yml bundle/Caddyfile bundle/deploy.sh bundle/init-buckets.sh bundle/init.sql ec2:/opt/spilltrace/
+          scp -q bundle/register_model.py ec2:/opt/spilltrace/models/
+
+      - name: Roll forward
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          ssh ec2 "GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' bash /opt/spilltrace/deploy.sh '${{ steps.tag.outputs.tag }}' '${GITHUB_SHA}'"
+
+      - name: Smoke test from the outside
+        run: |
+          url="${{ vars.PUBLIC_URL }}"
+          if [ -z "$url" ]; then url="http://${{ secrets.EC2_HOST }}"; fi
+          curl -fsS --retry 5 --retry-delay 5 "${url%/}/health"
+          echo
+          curl -fsS -o /dev/null -w 'frontend: HTTP %{http_code}\n' "${url%/}/"

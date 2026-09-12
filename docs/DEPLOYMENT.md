@@ -136,3 +136,124 @@ key; secrets are redacted by a logging processor rather than by discipline.
 
 Fedora 44, Podman 5.8.4 rootless, 8 cores, 15 GB RAM, no GPU, no Docker, Python 3.14 on
 the host (containers pin 3.12). Every command in this document was run on that machine.
+
+## 8. AWS EC2 + GitHub Actions (the hosted demo)
+
+One `t2.large` (2 vCPU, 8 GB) runs the whole stack under Docker Compose behind Caddy.
+GitHub Actions builds the images and rolls the host forward on every push to `main`.
+Nothing is built on the instance; no source tree lives there.
+
+```
+push to main ──▶ .github/workflows/deploy.yml
+                  ├─ build-api       infra/Dockerfile.backend  (INSTALL_ML=true, INSTALL_DEV=false)  ─▶ ghcr.io/<owner>/spilltrace-api:sha-xxxxxxx
+                  ├─ build-frontend  infra/Dockerfile.frontend (NEXT_PUBLIC_API_BASE_URL=PUBLIC_URL) ─▶ ghcr.io/<owner>/spilltrace-frontend:sha-xxxxxxx
+                  └─ deploy          scp infra/deploy/* ─▶ /opt/spilltrace ; ssh deploy.sh sha-xxxxxxx
+
+EC2 /opt/spilltrace:  compose.prod.yml  Caddyfile  deploy.sh  init.sql  init-buckets.sh
+                      .env (secrets, written once)   .image.env (tag, rewritten per deploy)
+                      models/{best.pt, manifest.json, register_model.py}
+
+browser ─▶ :80 caddy ─┬─ /api/*, /health*, /docs* ─▶ api:8000 ─┬─ postgres (PostGIS)
+                      └─ /*                       ─▶ frontend:3000  ├─ redis
+                                                         worker ────┤─ minio (S3)
+                                                         ais-ingestor┘
+```
+
+The browser talks to **one origin** (`PUBLIC_URL`), so there is no CORS in play and no
+credential ever leaves the instance; MinIO, Postgres and Redis publish no host ports.
+
+### 8.1 One-time: the instance (AWS console)
+
+| Item | Why | Where |
+|---|---|---|
+| **Root volume ≥ 30 GiB** | the ML image alone is ~3 GB unpacked; the 8 GiB default cannot hold the stack. `deploy.sh` refuses to run with < 5 GB free. | EC2 → Volumes → select → *Modify volume* → 30 GiB. Then `bash infra/deploy/bootstrap.sh` again (it runs `growpart`/`resize2fs`). |
+| **Security group inbound: 80/tcp (and 443/tcp)** from `0.0.0.0/0` | Caddy is the only published port. Keep 22 restricted to your IP. | EC2 → Security Groups → `launch-wizard-15` → *Edit inbound rules* |
+| **Elastic IP** (recommended) | a stop/start changes the public IP, and `PUBLIC_URL` is baked into the frontend bundle. | EC2 → Elastic IPs → *Allocate* → *Associate* |
+
+### 8.2 One-time: the host
+
+```bash
+# 1. prepare Ubuntu: Docker + Compose plugin, 2 GiB swap, /opt/spilltrace, log rotation
+ssh -i <key.pem> ubuntu@<host> 'bash -s' < infra/deploy/bootstrap.sh
+
+# 2. write the server .env: fresh secrets, provider keys copied from your local .env
+bash infra/deploy/render-env.sh http://<host> > /tmp/server.env
+scp -i <key.pem> /tmp/server.env ubuntu@<host>:/opt/spilltrace/.env && shred -u /tmp/server.env
+
+# 3. ship the trained checkpoint (gitignored, 98 MB) so deploy.sh can register it
+scp -i <key.pem> ml/runs/colab-resnet34-run3/{best.pt,manifest.json} ml/scripts/register_model.py \
+    ubuntu@<host>:/opt/spilltrace/models/
+```
+
+`render-env.sh` chooses `SPILLTRACE_ENV=staging` for an `http://` URL on purpose: in
+`production` the refresh cookie is `Secure` and a plain-HTTP deployment cannot log in.
+An `https://` URL selects `production` and sets `SITE_ADDRESS` to the host name so Caddy
+provisions a Let's Encrypt certificate itself (needs a DNS name pointing at the instance
+and port 443 open).
+
+### 8.3 One-time: GitHub
+
+*Settings → Secrets and variables → Actions.*
+
+| Kind | Name | Value |
+|---|---|---|
+| secret | `EC2_HOST` | public IP or DNS name of the instance |
+| secret | `EC2_USER` | `ubuntu` |
+| secret | `EC2_SSH_KEY` | a private key whose public half is in `~ubuntu/.ssh/authorized_keys` (use a dedicated key, not the console `.pem`) |
+| variable | `PUBLIC_URL` | `http://<host>` — must equal the URL people type; baked into the frontend build |
+
+The workflow also uses the job-scoped `GITHUB_TOKEN` to push to GHCR and to let the
+instance pull. Packages are private by default; that is fine because `deploy.sh` logs the
+instance in with the same token for the duration of the job.
+
+### 8.4 Every deploy
+
+```bash
+git push origin main            # builds both images (~10 min cold, ~3 min cached), deploys, smoke-tests /health
+```
+
+`deploy.sh` on the host: preflight free disk → `docker login ghcr.io` → `compose pull` →
+`compose up -d --remove-orphans` (the `migrate` one-shot applies Alembic head and the
+idempotent account seed before the API starts) → waits for `/health` → **first run only**:
+registers `models/best.pt` as `spilltrace-unet 0.2.0` (active) and creates the SYNTHETIC
+`kutch-01` demo case → prunes old images.
+
+**Manual deploy / rollback:** *Actions → Deploy → Run workflow* with an existing tag
+(`sha-abc1234`) skips the build, or on the host:
+
+```bash
+cd /opt/spilltrace && bash deploy.sh sha-abc1234
+```
+
+### 8.5 Operating it
+
+```bash
+ssh ubuntu@<host>
+cd /opt/spilltrace
+alias dc='docker compose --env-file .env --env-file .image.env -f compose.prod.yml'
+dc ps                                   # health of every service
+dc logs -f --tail=100 api worker        # structured JSON logs
+dc exec api python -m spilltrace.db.seed          # re-run the seed (idempotent)
+dc --profile tools run --rm register-model         # (re)register the checkpoint
+dc exec postgres pg_dump -U spilltrace spilltrace > backup.sql
+```
+
+Seeded accounts are `SPILLTRACE_ADMIN_EMAIL` / `SPILLTRACE_ADMIN_PASSWORD` and the analyst
+pair in `/opt/spilltrace/.env`. The seed never overwrites an existing user, so changing a
+password in `.env` after the first run has no effect; change it in the UI.
+
+**Data lives in Docker volumes** (`spilltrace_postgres-data`, `spilltrace_minio-data`,
+`spilltrace_app-data`), so a redeploy keeps cases, scenes and the registered model; only
+`docker compose down -v` deletes them. Back up Postgres **and** MinIO together (§5.7).
+
+### 8.6 Known limits of this topology
+
+* Plain HTTP on a bare IP: no TLS, no HSTS, `SPILLTRACE_ENV=staging`. Add a DNS name and
+  re-render `.env` with an `https://` URL to fix all three at once.
+* The instance's SSH host key is trusted on first use by the workflow (`ssh-keyscan`).
+  Pin it by replacing that line with a `known_hosts` entry if the instance is long-lived.
+* One host, no replicas: the API, worker and AIS ingestor share 2 vCPUs. U-Net inference
+  on CPU takes minutes per scene; watch `dc logs worker`.
+* Hosting the checkpoint: it is not in git and not in the image, so a **new** instance
+  needs step 8.2-3 before its first deploy registers a model. Until then the pipeline
+  falls back to the analytical detector and says so.

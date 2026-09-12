@@ -20,6 +20,13 @@ CMD ["npm", "run", "dev"]
 
 # ---------------------------------------------------------------- build
 FROM base AS build
+# NEXT_PUBLIC_* values are inlined into the client bundle at build time, so a
+# production image is built for one public origin (docs/DEPLOYMENT.md §8).
+# Only non-credential values may ever be passed here (CON-004).
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+ARG NEXT_PUBLIC_APP_NAME=SPILLTRACE
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
+    NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ ./
 RUN npm run build
